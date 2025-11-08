@@ -411,7 +411,7 @@
 docker-compose up -d
 
 # Initialize database
-docker-compose exec -T postgres psql -U postgres -d dw < src/init_warehouse.sql
+docker-compose exec -T postgres psql -U postgres -d dw < sql/schemas/init_warehouse.sql
 
 # Run pipeline
 prefect deployment run daily_pipeline/weather-schedule

@@ -355,7 +355,7 @@ def lookup(city_name: str, country: Optional[str]):
 
 def update_sql_seeds(name: str, latitude: float, longitude: float, city: str, region: str, country: str):
     """Update SQL seed file with new location."""
-    sql_file = PROJECT_ROOT / "src" / "seed_reference_data.sql"
+    sql_file = PROJECT_ROOT / "sql" / "seeds" / "seed_reference_data.sql"
     
     # Read existing SQL
     with open(sql_file) as f:
@@ -394,7 +394,7 @@ def update_sql_seeds(name: str, latitude: float, longitude: float, city: str, re
 
 def update_sql_seeds_wiki(title: str, language: str, namespace: int):
     """Update SQL seed file with new Wikipedia page."""
-    sql_file = PROJECT_ROOT / "src" / "seed_reference_data.sql"
+    sql_file = PROJECT_ROOT / "sql" / "seeds" / "seed_reference_data.sql"
     
     # Read existing SQL
     with open(sql_file) as f:

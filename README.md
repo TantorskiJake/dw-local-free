@@ -35,10 +35,10 @@ docker-compose ps
 
 ```bash
 # Run initialization scripts
-docker-compose exec -T postgres psql -U postgres -d dw < src/init_warehouse.sql
-docker-compose exec -T postgres psql -U postgres -d dw < src/update_raw_schemas.sql
-docker-compose exec -T postgres psql -U postgres -d dw < src/update_core_schemas.sql
-docker-compose exec -T postgres psql -U postgres -d dw < src/seed_reference_data.sql
+docker-compose exec -T postgres psql -U postgres -d dw < sql/schemas/init_warehouse.sql
+docker-compose exec -T postgres psql -U postgres -d dw < sql/schemas/update_raw_schemas.sql
+docker-compose exec -T postgres psql -U postgres -d dw < sql/schemas/update_core_schemas.sql
+docker-compose exec -T postgres psql -U postgres -d dw < sql/seeds/seed_reference_data.sql
 ```
 
 ### 3. Start Prefect Server (Optional)
@@ -580,7 +580,7 @@ ORDER BY temperature_range DESC;
 
 - **Refresh views manually**: Run `REFRESH MATERIALIZED VIEW CONCURRENTLY mart.daily_weather_aggregates;`
 - **Verify fact tables**: Ensure `core.weather` and `core.revision` have data
-- **Check view definitions**: Verify views are defined correctly in `src/init_warehouse.sql`
+- **Check view definitions**: Verify views are defined correctly in `sql/schemas/init_warehouse.sql`
 
 ---
 

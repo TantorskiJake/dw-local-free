@@ -88,7 +88,7 @@ chmod +x scripts/dw-cli
 
 1. **Validates** that location/page doesn't already exist
 2. **Updates** `src/seed_data.yaml` with new entry
-3. **Updates** `src/seed_reference_data.sql` with SQL INSERT
+3. **Updates** `sql/seeds/seed_reference_data.sql` with SQL INSERT
 4. **Optionally triggers** pipeline run if `--run` flag is used
 
 ### Pipeline Triggering
@@ -153,8 +153,8 @@ python src/cli.py add-location --name "Boston North" ...
 ### SQL File Update Issues
 
 If SQL file update fails:
-1. Manually edit `src/seed_reference_data.sql`
-2. Run seed script: `docker-compose exec -T postgres psql -U postgres -d dw < src/seed_reference_data.sql`
+1. Manually edit `sql/seeds/seed_reference_data.sql`
+2. Run seed script: `docker-compose exec -T postgres psql -U postgres -d dw < sql/seeds/seed_reference_data.sql`
 
 ## Integration with Runbook
 

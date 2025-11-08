@@ -631,7 +631,7 @@ wikipedia_pages:
 **2. Update Seed SQL Script (Optional)**
 
 ```sql
--- Edit src/seed_reference_data.sql
+-- Edit sql/seeds/seed_reference_data.sql
 -- Add new location
 INSERT INTO core.location (location_name, latitude, longitude, country, region, city)
 VALUES 
@@ -649,7 +649,7 @@ ON CONFLICT (wikipedia_page_id, page_language) DO NOTHING;
 
 ```bash
 # Run seed script
-docker-compose exec -T postgres psql -U postgres -d dw < src/seed_reference_data.sql
+docker-compose exec -T postgres psql -U postgres -d dw < sql/seeds/seed_reference_data.sql
 
 # Or manually insert via Adminer
 # Connect to http://localhost:8080

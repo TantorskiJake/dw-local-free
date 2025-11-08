@@ -24,10 +24,10 @@ docker-compose ps
 
 - [ ] **All DDL scripts run cleanly**
   ```bash
-  docker-compose exec -T postgres psql -U postgres -d dw < src/init_warehouse.sql
-  docker-compose exec -T postgres psql -U postgres -d dw < src/update_raw_schemas.sql
-  docker-compose exec -T postgres psql -U postgres -d dw < src/update_core_schemas.sql
-  docker-compose exec -T postgres psql -U postgres -d dw < src/seed_reference_data.sql
+  docker-compose exec -T postgres psql -U postgres -d dw < sql/schemas/init_warehouse.sql
+  docker-compose exec -T postgres psql -U postgres -d dw < sql/schemas/update_raw_schemas.sql
+  docker-compose exec -T postgres psql -U postgres -d dw < sql/schemas/update_core_schemas.sql
+  docker-compose exec -T postgres psql -U postgres -d dw < sql/seeds/seed_reference_data.sql
   ```
   - No errors in output
   - All schemas created (raw, core, mart)
