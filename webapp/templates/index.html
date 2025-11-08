@@ -30,7 +30,6 @@
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             margin-bottom: 30px;
-            text-align: center;
         }
         
         h1 {
@@ -232,22 +231,150 @@
             font-size: 4em;
             margin-bottom: 20px;
         }
+        
+        /* Dark mode styles */
+        body.dark-mode {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        }
+        
+        body.dark-mode header,
+        body.dark-mode .card {
+            background: #2d2d44;
+            color: #e0e0e0;
+        }
+        
+        body.dark-mode h1,
+        body.dark-mode h2,
+        body.dark-mode h3 {
+            color: #e0e0e0;
+        }
+        
+        body.dark-mode .subtitle {
+            color: #b0b0b0;
+        }
+        
+        body.dark-mode input {
+            background: #1a1a2e;
+            color: #e0e0e0;
+            border-color: #444;
+        }
+        
+        body.dark-mode input:focus {
+            border-color: #667eea;
+        }
+        
+        body.dark-mode .weather-hour {
+            background: #1a1a2e;
+            color: #e0e0e0;
+        }
+        
+        body.dark-mode .weather-hour.today {
+            background: #2a3a5e;
+            border-left-color: #667eea;
+        }
+        
+        body.dark-mode .hour-time {
+            color: #e0e0e0;
+        }
+        
+        body.dark-mode .hour-time.today {
+            color: #667eea;
+        }
+        
+        body.dark-mode .wikipedia-content {
+            color: #e0e0e0;
+        }
+        
+        body.dark-mode .wikipedia-content h3 {
+            color: #667eea;
+        }
+        
+        body.dark-mode .status.success {
+            background: #1e4d2e;
+            color: #90ee90;
+        }
+        
+        body.dark-mode .status.error {
+            background: #4d1e1e;
+            color: #ff6b6b;
+        }
+        
+        body.dark-mode .status.loading {
+            background: #1e3a4d;
+            color: #87ceeb;
+        }
+        
+        body.dark-mode .error {
+            background: #4d1e1e;
+            color: #ff6b6b;
+        }
+        
+        body.dark-mode .loading {
+            color: #b0b0b0;
+        }
+        
+        body.dark-mode .empty-state {
+            color: #b0b0b0;
+        }
+        
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: flex-end;
+        }
+        
+        .control-button {
+            padding: 8px 16px;
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s;
+        }
+        
+        .control-button:hover {
+            background: #e0e0e0;
+        }
+        
+        body.dark-mode .control-button {
+            background: #1a1a2e;
+            border-color: #444;
+            color: #e0e0e0;
+        }
+        
+        body.dark-mode .control-button:hover {
+            background: #2a2a3e;
+        }
+        
+        .control-button.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🌍 City Weather & Wikipedia</h1>
-            <p class="subtitle">Search for any city to see 7-day weather forecast and Wikipedia article</p>
-            
-            <div class="search-box">
-                <input type="text" id="cityInput" placeholder="Enter city name (e.g., Boston, Paris, Tokyo)" 
-                       onkeypress="if(event.key === 'Enter') lookupCity()">
-                <input type="text" id="countryInput" placeholder="Country (optional)" 
-                       style="width: 200px;"
-                       onkeypress="if(event.key === 'Enter') lookupCity()">
-                <button onclick="lookupCity()">🔍 Search</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div>
+                    <h1>🌍 City Weather & Wikipedia</h1>
+                    <p class="subtitle">Search for any city to see 7-day weather forecast and Wikipedia article</p>
+                </div>
+                <div class="controls">
+                    <button class="control-button" id="tempToggle" onclick="toggleTemperatureUnit()">°C / °F</button>
+                    <button class="control-button" id="darkModeToggle" onclick="toggleDarkMode()">🌙 Dark</button>
+                </div>
             </div>
+            
+            <form class="search-box" id="searchForm">
+                <input type="text" id="cityInput" placeholder="Enter city name (e.g., Boston, Paris, Tokyo)" required>
+                <input type="text" id="countryInput" placeholder="Country (optional)" style="width: 200px;">
+                <button type="submit">🔍 Search</button>
+            </form>
             
             <div id="status" class="status" style="display: none;"></div>
         </header>
@@ -277,15 +404,91 @@
     
     <script>
         let weatherChart = null;
+        let useFahrenheit = false;
+        let darkMode = false;
+        
+        // Temperature conversion functions
+        function celsiusToFahrenheit(celsius) {
+            return (celsius * 9/5) + 32;
+        }
+        
+        function formatTemperature(celsius) {
+            if (celsius === null || celsius === undefined) return 'N/A';
+            const temp = useFahrenheit ? celsiusToFahrenheit(celsius) : celsius;
+            const unit = useFahrenheit ? '°F' : '°C';
+            return temp.toFixed(1) + unit;
+        }
+        
+        // Dark mode toggle
+        function toggleDarkMode() {
+            darkMode = !darkMode;
+            if (darkMode) {
+                document.body.classList.add('dark-mode');
+                document.getElementById('darkModeToggle').textContent = '☀️ Light';
+            } else {
+                document.body.classList.remove('dark-mode');
+                document.getElementById('darkModeToggle').textContent = '🌙 Dark';
+            }
+            localStorage.setItem('darkMode', darkMode);
+        }
+        
+        // Temperature unit toggle
+        function toggleTemperatureUnit() {
+            useFahrenheit = !useFahrenheit;
+            const button = document.getElementById('tempToggle');
+            if (useFahrenheit) {
+                button.textContent = '°F / °C';
+                button.classList.add('active');
+            } else {
+                button.textContent = '°C / °F';
+                button.classList.remove('active');
+            }
+            localStorage.setItem('useFahrenheit', useFahrenheit);
+            // Refresh weather display if data is already loaded
+            const contentEl = document.getElementById('content');
+            if (contentEl && contentEl.style.display !== 'none') {
+                const cityInput = document.getElementById('cityInput');
+                if (cityInput && cityInput.dataset.lastLocationId) {
+                    loadWeather(parseInt(cityInput.dataset.lastLocationId));
+                }
+            }
+        }
+        
+        // Load preferences from localStorage
+        function loadPreferences() {
+            const savedDarkMode = localStorage.getItem('darkMode');
+            const savedUseFahrenheit = localStorage.getItem('useFahrenheit');
+            
+            if (savedDarkMode === 'true') {
+                darkMode = true;
+                document.body.classList.add('dark-mode');
+                document.getElementById('darkModeToggle').textContent = '☀️ Light';
+            }
+            
+            if (savedUseFahrenheit === 'true') {
+                useFahrenheit = true;
+                const button = document.getElementById('tempToggle');
+                button.textContent = '°F / °C';
+                button.classList.add('active');
+            }
+        }
         
         async function lookupCity() {
+            console.log('lookupCity called'); // Debug log
             const cityInput = document.getElementById('cityInput');
             const countryInput = document.getElementById('countryInput');
             const statusEl = document.getElementById('status');
             const contentEl = document.getElementById('content');
             const emptyStateEl = document.getElementById('emptyState');
             
+            if (!cityInput) {
+                console.error('cityInput not found');
+                return;
+            }
+            
             const cityName = cityInput.value.trim();
+            console.log('City name:', cityName); // Debug log
+            
             if (!cityName) {
                 statusEl.style.display = 'block';
                 statusEl.className = 'status error';
@@ -330,6 +533,9 @@
                     statusEl.style.display = 'none';
                 }, 3000);
                 
+                // Store location ID for temperature unit refresh
+                cityInput.dataset.lastLocationId = data.location.id;
+                
                 // Load weather and Wikipedia
                 await loadWeather(data.location.id);
                 await loadWikipedia(data.location.name);
@@ -345,6 +551,44 @@
             }
         }
         
+        // Set up form submission handler immediately
+        (function() {
+            function setupFormHandler() {
+                const searchForm = document.getElementById('searchForm');
+                if (searchForm) {
+                    searchForm.addEventListener('submit', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Form submitted'); // Debug log
+                        lookupCity();
+                        return false;
+                    });
+                    console.log('Form handler attached');
+                } else {
+                    console.error('searchForm not found');
+                }
+            }
+            
+            // Try immediately, then on DOMContentLoaded
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', setupFormHandler);
+            } else {
+                setupFormHandler();
+            }
+        })();
+        
+        // Make functions available globally
+        window.lookupCity = lookupCity;
+        window.toggleDarkMode = toggleDarkMode;
+        window.toggleTemperatureUnit = toggleTemperatureUnit;
+        
+        // Load preferences on page load
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadPreferences);
+        } else {
+            loadPreferences();
+        }
+        
         async function loadWeather(locationId) {
             const weatherContentEl = document.getElementById('weatherContent');
             
@@ -357,17 +601,37 @@
                     return;
                 }
                 
-                // Get today's date in UTC (to match API timezone)
+                // Get today's date in user's local timezone
                 const now = new Date();
-                const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-                const todayKey = todayUTC.toISOString().split('T')[0];
+                // Get local date components directly (not UTC)
+                const localYear = now.getFullYear();
+                const localMonth = now.getMonth();
+                const localDay = now.getDate();
                 
-                // Group observations by day (using UTC date to match API data)
+                // Format as YYYY-MM-DD in local timezone
+                const year = localYear;
+                const month = String(localMonth + 1).padStart(2, '0');
+                const day = String(localDay).padStart(2, '0');
+                const todayKey = `${year}-${month}-${day}`;
+                
+                console.log('Today in local timezone:', todayKey, 'Current time:', now.toLocaleString());
+                
+                // Group observations by day (convert UTC to local time for display)
                 const dailyData = {};
                 data.observations.forEach(obs => {
+                    // Parse UTC date string - JavaScript Date automatically converts to local timezone
                     const obsDate = new Date(obs.observed_at);
-                    // Use UTC date for grouping to match API data
-                    const dayKey = obsDate.toISOString().split('T')[0];
+                    
+                    // Get local date components (these are already in user's timezone)
+                    const obsLocalYear = obsDate.getFullYear();
+                    const obsLocalMonth = obsDate.getMonth();
+                    const obsLocalDay = obsDate.getDate();
+                    
+                    // Create day key in local timezone
+                    const year = obsLocalYear;
+                    const month = String(obsLocalMonth + 1).padStart(2, '0');
+                    const day = String(obsLocalDay).padStart(2, '0');
+                    const dayKey = `${year}-${month}-${day}`;
                     
                     if (!dailyData[dayKey]) {
                         dailyData[dayKey] = {
@@ -389,37 +653,71 @@
                     }
                 });
                 
-                // Get current time to identify "now"
-                const now = new Date();
-                const nowKey = now.toISOString();
+                // Get current time in user's local timezone
+                const currentTime = new Date();
                 
-                // Sort observations by time and get the next 72 hours (3 days) of hourly data
+                // Sort observations by time and get data for 7 days (3 days ago to 3 days ahead)
+                // But also include today even if it's early in the day
                 const sortedObservations = data.observations
                     .filter(obs => {
                         const obsDate = new Date(obs.observed_at);
                         // Show data from 3 days ago to 3 days ahead (7 days total)
-                        const daysDiff = (obsDate - now) / (1000 * 60 * 60 * 24);
+                        const daysDiff = (obsDate - currentTime) / (1000 * 60 * 60 * 24);
                         return daysDiff >= -3 && daysDiff <= 3;
                     })
                     .sort((a, b) => new Date(a.observed_at) - new Date(b.observed_at));
                 
-                // Group by day for organization
+                console.log(`Total observations: ${data.observations.length}, Filtered: ${sortedObservations.length}`);
+                if (sortedObservations.length > 0) {
+                    const firstObs = new Date(sortedObservations[0].observed_at);
+                    const lastObs = new Date(sortedObservations[sortedObservations.length - 1].observed_at);
+                    console.log(`First observation: ${firstObs.toLocaleString()}, Last: ${lastObs.toLocaleString()}`);
+                }
+                
+                // Group by day for organization (using local timezone)
                 const hoursByDay = {};
                 sortedObservations.forEach(obs => {
+                    // Parse the UTC date string and convert to local time
                     const obsDate = new Date(obs.observed_at);
-                    const dayKey = obsDate.toISOString().split('T')[0];
+                    
+                    // Get local date components (this automatically converts from UTC to local)
+                    const localYear = obsDate.getFullYear();
+                    const localMonth = obsDate.getMonth();
+                    const localDay = obsDate.getDate();
+                    
+                    // Create day key in local timezone
+                    const year = localYear;
+                    const month = String(localMonth + 1).padStart(2, '0');
+                    const day = String(localDay).padStart(2, '0');
+                    const dayKey = `${year}-${month}-${day}`;
                     const isToday = dayKey === todayKey;
                     
                     if (!hoursByDay[dayKey]) {
+                        // Format day name using local date components
+                        // Create a date object from local components to ensure correct day name
+                        const localDateObj = new Date(localYear, localMonth, localDay);
+                        let dayName;
+                        // Double-check isToday to make sure it's really today
+                        const actualIsToday = (dayKey === todayKey);
+                        if (actualIsToday) {
+                            dayName = 'Today';
+                        } else {
+                            // Use the local date object to format the day name
+                            dayName = localDateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+                        }
+                        
+                        console.log(`Day key: ${dayKey}, todayKey: ${todayKey}, isToday: ${actualIsToday}, dayName: ${dayName}`);
+                        
                         hoursByDay[dayKey] = {
-                            dayName: isToday ? 'Today' : obsDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }),
-                            isToday: isToday,
+                            dayName: dayName,
+                            isToday: actualIsToday,
                             hours: []
                         };
                     }
                     
+                    // Display time in local timezone
                     const timeStr = obsDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-                    const isNow = Math.abs(obsDate - now) < 60 * 60 * 1000; // Within 1 hour of now
+                    const isNow = Math.abs(obsDate - currentTime) < 60 * 60 * 1000; // Within 1 hour of now
                     
                     hoursByDay[dayKey].hours.push({
                         time: timeStr,
@@ -431,12 +729,31 @@
                     });
                 });
                 
+                // Check if we have data for today
+                const hasTodayData = hoursByDay[todayKey] && hoursByDay[todayKey].hours.length > 0;
+                
                 // Render hourly forecast
                 const daysArray = Object.keys(hoursByDay).sort();
                 let html = '<div class="weather-hours">';
                 
+                // Always show "Today" first, even if there's no data
+                if (!hasTodayData) {
+                    const todayDateObj = new Date(localYear, localMonth, localDay);
+                    const todayName = todayDateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+                    
+                    // Show message for today if no data (before rendering other days)
+                    html += `<div style="margin-bottom: 20px; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 5px;">
+                        <h3 style="color: #856404; margin-bottom: 5px; font-size: 1.1em;">Today (${todayName})</h3>
+                        <p style="color: #856404; font-size: 0.9em;">No hourly forecast data available for today. The API provides forecast data starting from tomorrow.</p>
+                    </div>`;
+                }
+                
                 daysArray.forEach(dayKey => {
                     const dayData = hoursByDay[dayKey];
+                    // Skip rendering if this is today and we already showed the "no data" message
+                    if (dayKey === todayKey && !hasTodayData && dayData.hours.length === 0) {
+                        return; // Skip - we already showed the message above
+                    }
                     html += `<div style="margin-bottom: 20px;">
                         <h3 style="color: #667eea; margin-bottom: 10px; font-size: 1.1em;">${dayData.dayName}</h3>
                         ${dayData.hours.map(hour => `
@@ -444,7 +761,7 @@
                                 <div class="hour-time ${hour.isNow || dayData.isToday ? 'today' : ''}">
                                     ${hour.isNow ? '🕐 Now' : hour.time}
                                 </div>
-                                <div class="hour-temp">${hour.temp !== null ? hour.temp.toFixed(1) + '°C' : 'N/A'}</div>
+                                <div class="hour-temp">${formatTemperature(hour.temp)}</div>
                                 <div class="hour-details">
                                     ${hour.humidity !== null ? `<div class="hour-detail">💧 ${hour.humidity.toFixed(0)}%</div>` : ''}
                                     ${hour.wind !== null ? `<div class="hour-detail">💨 ${hour.wind.toFixed(1)} m/s</div>` : ''}
@@ -478,8 +795,12 @@
                         return date.toLocaleString();
                     });
                     
-                    const temps = chartData.map(obs => obs.temperature_celsius);
+                    const temps = chartData.map(obs => {
+                        if (obs.temperature_celsius === null) return null;
+                        return useFahrenheit ? celsiusToFahrenheit(obs.temperature_celsius) : obs.temperature_celsius;
+                    });
                     const humidities = chartData.map(obs => obs.humidity_percent);
+                    const tempUnit = useFahrenheit ? '°F' : '°C';
                     
                     weatherChart = new Chart(ctx, {
                         type: 'line',
@@ -487,7 +808,7 @@
                             labels: labels,
                             datasets: [
                                 {
-                                    label: 'Temperature (°C)',
+                                    label: `Temperature (${tempUnit})`,
                                     data: temps,
                                     borderColor: 'rgb(102, 126, 234)',
                                     backgroundColor: 'rgba(102, 126, 234, 0.1)',
@@ -522,7 +843,7 @@
                                     position: 'left',
                                     title: {
                                         display: true,
-                                        text: 'Temperature (°C)'
+                                        text: `Temperature (${tempUnit})`
                                     }
                                 },
                                 y1: {
@@ -555,13 +876,50 @@
                 const pagesResponse = await fetch('/api/wikipedia-pages');
                 const pages = await pagesResponse.json();
                 
-                // Find the matching page
-                const matchingPage = pages.find(p => 
+                // Find the matching page - try exact match first, then partial match
+                let matchingPage = pages.find(p => 
                     p.title.toLowerCase() === cityName.toLowerCase()
                 );
                 
+                // If no exact match, try to find pages that contain the city name
                 if (!matchingPage) {
-                    wikipediaContentEl.innerHTML = '<div class="error">Wikipedia article not found for this city</div>';
+                    matchingPage = pages.find(p => 
+                        p.title.toLowerCase().includes(cityName.toLowerCase()) ||
+                        cityName.toLowerCase().includes(p.title.toLowerCase())
+                    );
+                }
+                
+                // If still no match, try to fetch Wikipedia data directly via the lookup API
+                if (!matchingPage) {
+                    // Try to fetch Wikipedia data for this city
+                    try {
+                        const lookupResponse = await fetch('/api/lookup-city', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                city_name: cityName,
+                                country: null
+                            })
+                        });
+                        
+                        const lookupData = await lookupResponse.json();
+                        if (lookupData.wikipedia_success) {
+                            // Wikipedia data was fetched, reload pages
+                            const pagesResponse2 = await fetch('/api/wikipedia-pages');
+                            const pages2 = await pagesResponse2.json();
+                            matchingPage = pages2.find(p => 
+                                p.title.toLowerCase().includes(cityName.toLowerCase())
+                            );
+                        }
+                    } catch (e) {
+                        console.log('Could not fetch Wikipedia data:', e);
+                    }
+                }
+                
+                if (!matchingPage) {
+                    wikipediaContentEl.innerHTML = `<div class="error">Wikipedia article not found for "${cityName}". Try searching with the full city name (e.g., "Hartford, Connecticut").</div>`;
                     return;
                 }
                 
@@ -589,6 +947,7 @@
                 wikipediaContentEl.innerHTML = `<div class="error">Error loading Wikipedia: ${error.message}</div>`;
             }
         }
+        
     </script>
 </body>
 </html>

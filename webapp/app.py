@@ -386,19 +386,37 @@ def lookup_city():
         except Exception as e:
             pass  # Continue even if weather fails
         
-        # Fetch Wikipedia
+        # Fetch Wikipedia - try multiple variations of the city name
         wikipedia_success = False
-        try:
-            wikipedia_page = {
-                "page_title": city_name,
-                "page_language": "en"
-            }
-            summary_data, content_size = fetch_wikipedia_from_api(wikipedia_page)
-            store_wikipedia_raw(wikipedia_page, summary_data, content_size)
-            transform_wikipedia_to_fact()
-            wikipedia_success = True
-        except Exception as e:
-            pass  # Continue even if Wikipedia fails
+        wikipedia_variations = [
+            city_name,  # Just city name
+        ]
+        
+        # Add city + region if available
+        if location.get("region"):
+            wikipedia_variations.append(f"{city_name}, {location['region']}")
+        
+        # Add city + country if available
+        if location.get("country"):
+            wikipedia_variations.append(f"{city_name}, {location['country']}")
+        
+        # Add city + region + country if both available
+        if location.get("region") and location.get("country"):
+            wikipedia_variations.append(f"{city_name}, {location['region']}, {location['country']}")
+        
+        for page_title in wikipedia_variations:
+            try:
+                wikipedia_page = {
+                    "page_title": page_title,
+                    "page_language": "en"
+                }
+                summary_data, content_size = fetch_wikipedia_from_api(wikipedia_page)
+                store_wikipedia_raw(wikipedia_page, summary_data, content_size)
+                transform_wikipedia_to_fact()
+                wikipedia_success = True
+                break  # Success, stop trying variations
+            except Exception as e:
+                continue  # Try next variation
         
         cursor.close()
         conn.close()
