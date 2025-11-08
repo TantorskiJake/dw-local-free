@@ -16,6 +16,17 @@ from prefect.task_runners import ConcurrentTaskRunner
 from typing import List, Dict, Any
 import time
 import logging
+import sys
+import os
+
+# Add src to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+from src.data_quality import (
+    initialize_great_expectations,
+    run_weather_checkpoint,
+    run_wikipedia_checkpoint
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -170,31 +181,69 @@ def upsert_wikipedia_dimension_and_facts(fetch_results: List[Dict[str, Any]]) ->
 
 
 @task(
-    name="run_data_quality_checkpoints",
-    retries=1,
-    retry_delay_seconds=5,
-    timeout_seconds=180,
+    name="run_weather_data_quality_checkpoint",
+    retries=0,  # Don't retry on data quality failures
+    timeout_seconds=300,
     log_prints=True
 )
-def run_data_quality_checkpoints() -> Dict[str, Any]:
+def run_weather_data_quality_checkpoint() -> Dict[str, Any]:
     """
-    Run data quality checkpoints to validate data integrity.
+    Run weather fact data quality checkpoint using Great Expectations.
     
     Returns:
-        Dictionary with quality check results
+        Dictionary with checkpoint results
+        
+    Raises:
+        Exception if checkpoint fails
     """
-    logger.info("Running data quality checkpoints")
-    # TODO: Implement data quality checks
-    # - Check for missing required fields
-    # - Validate data ranges
-    # - Check referential integrity
-    # - Return quality metrics
-    time.sleep(2)  # Placeholder
-    return {
-        "status": "success",
-        "checks_passed": 5,
-        "checks_failed": 0
-    }
+    logger.info("Running weather fact data quality checkpoint")
+    
+    # Initialize Great Expectations context
+    context = initialize_great_expectations()
+    
+    # Run weather checkpoint
+    result = run_weather_checkpoint(context)
+    
+    if not result["success"]:
+        error_msg = f"Weather data quality checkpoint FAILED: {result.get('statistics', {})}"
+        logger.error(error_msg)
+        raise Exception(error_msg)
+    
+    logger.info("Weather data quality checkpoint PASSED")
+    return result
+
+
+@task(
+    name="run_wikipedia_data_quality_checkpoint",
+    retries=0,  # Don't retry on data quality failures
+    timeout_seconds=300,
+    log_prints=True
+)
+def run_wikipedia_data_quality_checkpoint() -> Dict[str, Any]:
+    """
+    Run Wikipedia revision fact data quality checkpoint using Great Expectations.
+    
+    Returns:
+        Dictionary with checkpoint results
+        
+    Raises:
+        Exception if checkpoint fails
+    """
+    logger.info("Running Wikipedia revision data quality checkpoint")
+    
+    # Initialize Great Expectations context
+    context = initialize_great_expectations()
+    
+    # Run Wikipedia checkpoint
+    result = run_wikipedia_checkpoint(context)
+    
+    if not result["success"]:
+        error_msg = f"Wikipedia data quality checkpoint FAILED: {result.get('statistics', {})}"
+        logger.error(error_msg)
+        raise Exception(error_msg)
+    
+    logger.info("Wikipedia data quality checkpoint PASSED")
+    return result
 
 
 @task(
@@ -287,11 +336,26 @@ def daily_pipeline():
         wikipedia_transform_result = upsert_wikipedia_dimension_and_facts(wikipedia_fetch_results)
         logger.info(f"Wikipedia transform completed: {wikipedia_transform_result}")
         
-        # Step 6: Run data quality checkpoints
-        quality_result = run_data_quality_checkpoints()
-        logger.info(f"Data quality checkpoints completed: {quality_result}")
+        # Step 6: Run data quality checkpoints (after transforms, before mart refresh)
+        # If checkpoints fail, the flow will fail and mart refresh will be skipped
+        try:
+            weather_quality_result = run_weather_data_quality_checkpoint()
+            logger.info(f"Weather data quality checkpoint passed: {weather_quality_result.get('success')}")
+            
+            wikipedia_quality_result = run_wikipedia_data_quality_checkpoint()
+            logger.info(f"Wikipedia data quality checkpoint passed: {wikipedia_quality_result.get('success')}")
+            
+            quality_results = {
+                "weather": weather_quality_result,
+                "wikipedia": wikipedia_quality_result,
+                "all_passed": True
+            }
+        except Exception as e:
+            logger.error(f"Data quality checkpoints failed: {e}")
+            logger.error("Skipping mart refresh due to data quality failures")
+            raise  # Re-raise to fail the flow
         
-        # Step 7: Refresh materialized views concurrently
+        # Step 7: Refresh materialized views concurrently (only if checkpoints passed)
         view_names = [
             "mart.daily_weather_aggregates",
             "mart.daily_wikipedia_page_stats"
@@ -306,7 +370,7 @@ def daily_pipeline():
             "weather_transform": weather_transform_result,
             "wikipedia_fetch": len(wikipedia_fetch_results),
             "wikipedia_transform": wikipedia_transform_result,
-            "data_quality": quality_result,
+            "data_quality": quality_results,
             "views_refreshed": len(refresh_results),
             "pipeline_status": "success"
         }

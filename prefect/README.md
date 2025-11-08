@@ -28,8 +28,11 @@ The main daily ETL pipeline that orchestrates all data warehouse tasks.
 3. Transform weather data into fact table
 4. Fetch and store raw Wikipedia pages (parallel)
 5. Upsert Wikipedia dimension and insert revision facts
-6. Run data quality checkpoints
-7. Refresh materialized views (concurrent)
+6. Run data quality checkpoints (Great Expectations)
+   - Weather fact validation
+   - Wikipedia revision validation
+   - **Pipeline fails if checkpoints fail**
+7. Refresh materialized views (concurrent, only if checkpoints pass)
 
 **Features:**
 - Parallel execution for weather and Wikipedia fetches
@@ -135,7 +138,8 @@ python -m prefect.daily_pipeline
 | transform_weather_to_fact | 2 | 300s | Database transform |
 | fetch_raw_wikipedia_page | 3 | 120s | Network call, exponential backoff |
 | upsert_wikipedia_dimension_and_facts | 2 | 300s | Database transform |
-| run_data_quality_checkpoints | 1 | 180s | Validation |
+| run_weather_data_quality_checkpoint | 0 | 300s | Great Expectations, no retries |
+| run_wikipedia_data_quality_checkpoint | 0 | 300s | Great Expectations, no retries |
 | refresh_materialized_view | 2 | 300s | Database operation |
 
 ## Environment Variables
