@@ -352,38 +352,28 @@ def get_dashboard_stats():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/lookup-city', methods=['POST'])
-def lookup_city():
-    """Look up a city and fetch weather/Wikipedia data."""
+@app.route('/api/search-cities', methods=['GET'])
+def search_cities():
+    """Search for cities and return multiple results for user selection."""
     try:
-        data = request.get_json()
-        city_name = data.get('city_name')
-        country = data.get('country')
+        query = request.args.get('q', '').strip()
+        country = request.args.get('country', '').strip()
         
-        if not city_name:
-            return jsonify({'error': 'City name is required'}), 400
+        if not query:
+            return jsonify({'results': []})
         
-        # Import here to avoid circular imports
-        import sys
-        from pathlib import Path
-        project_root = Path(__file__).parent.parent
-        if str(project_root) not in sys.path:
-            sys.path.insert(0, str(project_root))
-        
-        from src.extract import fetch_weather_from_api, store_weather_raw, fetch_wikipedia_from_api, store_wikipedia_raw
-        from src.transform import transform_weather_to_fact, transform_wikipedia_to_fact
         import requests
         
-        # Geocode city
+        # Geocode city - get multiple results
         GEOCODING_API = "https://nominatim.openstreetmap.org/search"
-        query = city_name
+        search_query = query
         if country:
-            query = f"{city_name}, {country}"
+            search_query = f"{query}, {country}"
         
         params = {
-            "q": query,
+            "q": search_query,
             "format": "json",
-            "limit": 1,
+            "limit": 10,  # Return up to 10 results
             "addressdetails": 1
         }
         
@@ -392,20 +382,116 @@ def lookup_city():
         response.raise_for_status()
         results = response.json()
         
-        if not results:
-            return jsonify({'error': f'City "{city_name}" not found'}), 404
+        # Format results for frontend
+        formatted_results = []
+        for result in results:
+            address = result.get("address", {})
+            city = address.get("city") or address.get("town") or address.get("village") or query
+            region = address.get("state") or address.get("region") or ""
+            country_name = address.get("country") or ""
+            
+            # Create a display name
+            display_parts = [city]
+            if region:
+                display_parts.append(region)
+            if country_name:
+                display_parts.append(country_name)
+            display_name = ", ".join(display_parts)
+            
+            formatted_results.append({
+                'display_name': display_name,
+                'city': city,
+                'region': region,
+                'country': country_name,
+                'latitude': float(result["lat"]),
+                'longitude': float(result["lon"]),
+                'full_address': result.get("display_name", display_name)
+            })
         
-        result = results[0]
-        address = result.get("address", {})
+        return jsonify({'results': formatted_results})
         
-        location = {
-            "location_name": city_name,
-            "latitude": float(result["lat"]),
-            "longitude": float(result["lon"]),
-            "city": address.get("city") or address.get("town") or address.get("village") or city_name,
-            "region": address.get("state") or address.get("region") or "",
-            "country": address.get("country") or ""
-        }
+    except Exception as e:
+        return jsonify({'error': str(e), 'results': []}), 500
+
+
+@app.route('/api/lookup-city', methods=['POST'])
+def lookup_city():
+    """Look up a city and fetch weather/Wikipedia data."""
+    try:
+        data = request.get_json()
+        city_name = data.get('city_name')
+        country = data.get('country')
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+        
+        # If coordinates are provided, use them directly (from search selection)
+        if latitude is not None and longitude is not None:
+            # Import here to avoid circular imports
+            import sys
+            from pathlib import Path
+            project_root = Path(__file__).parent.parent
+            if str(project_root) not in sys.path:
+                sys.path.insert(0, str(project_root))
+            
+            from src.extract import fetch_weather_from_api, store_weather_raw, fetch_wikipedia_from_api, store_wikipedia_raw
+            from src.transform import transform_weather_to_fact, transform_wikipedia_to_fact
+            
+            location = {
+                "location_name": city_name or "Unknown",
+                "latitude": float(latitude),
+                "longitude": float(longitude),
+                "city": data.get('city') or city_name or "Unknown",
+                "region": data.get('region') or "",
+                "country": country or data.get('country') or ""
+            }
+        else:
+            # Fallback to geocoding if no coordinates provided
+            if not city_name:
+                return jsonify({'error': 'City name is required'}), 400
+            
+            # Import here to avoid circular imports
+            import sys
+            from pathlib import Path
+            project_root = Path(__file__).parent.parent
+            if str(project_root) not in sys.path:
+                sys.path.insert(0, str(project_root))
+            
+            from src.extract import fetch_weather_from_api, store_weather_raw, fetch_wikipedia_from_api, store_wikipedia_raw
+            from src.transform import transform_weather_to_fact, transform_wikipedia_to_fact
+            import requests
+            
+            # Geocode city
+            GEOCODING_API = "https://nominatim.openstreetmap.org/search"
+            query = city_name
+            if country:
+                query = f"{city_name}, {country}"
+            
+            params = {
+                "q": query,
+                "format": "json",
+                "limit": 1,
+                "addressdetails": 1
+            }
+            
+            headers = {'User-Agent': 'DataWarehouseETL/1.0'}
+            response = requests.get(GEOCODING_API, params=params, headers=headers, timeout=10)
+            response.raise_for_status()
+            results = response.json()
+            
+            if not results:
+                return jsonify({'error': f'City "{city_name}" not found'}), 404
+            
+            result = results[0]
+            address = result.get("address", {})
+            
+            location = {
+                "location_name": city_name,
+                "latitude": float(result["lat"]),
+                "longitude": float(result["lon"]),
+                "city": address.get("city") or address.get("town") or address.get("village") or city_name,
+                "region": address.get("state") or address.get("region") or "",
+                "country": address.get("country") or ""
+            }
         
         # Add location to database
         conn = get_db_connection()
@@ -444,22 +530,40 @@ def lookup_city():
             pass  # Continue even if weather fails
         
         # Fetch Wikipedia - try multiple variations of the city name
+        # Prioritize more specific variations to avoid disambiguation pages
         wikipedia_success = False
-        wikipedia_variations = [
-            city_name,  # Just city name
-        ]
+        wikipedia_variations = []
         
-        # Add city + region if available
-        if location.get("region"):
-            wikipedia_variations.append(f"{city_name}, {location['region']}")
+        # Use the city name from location (which might be from selectedCity)
+        search_city_name = location.get("city") or city_name
         
-        # Add city + country if available
-        if location.get("country"):
-            wikipedia_variations.append(f"{city_name}, {location['country']}")
+        # Try variations in order of specificity (most specific first)
+        # This helps avoid disambiguation pages for common city names
         
-        # Add city + region + country if both available
+        # Most specific: city + region + country
         if location.get("region") and location.get("country"):
-            wikipedia_variations.append(f"{city_name}, {location['region']}, {location['country']}")
+            wikipedia_variations.append(f"{search_city_name}, {location['region']}, {location['country']}")
+        
+        # Very specific: city + region (state/province)
+        if location.get("region"):
+            wikipedia_variations.append(f"{search_city_name}, {location['region']}")
+        
+        # Specific: city + country
+        if location.get("country"):
+            wikipedia_variations.append(f"{search_city_name}, {location['country']}")
+        
+        # Less specific: just city name (try last to avoid disambiguation)
+        wikipedia_variations.append(search_city_name)
+        
+        # Also try the original city_name if different
+        if city_name and city_name != search_city_name:
+            if location.get("region") and location.get("country"):
+                wikipedia_variations.append(f"{city_name}, {location['region']}, {location['country']}")
+            if location.get("region"):
+                wikipedia_variations.append(f"{city_name}, {location['region']}")
+            if location.get("country"):
+                wikipedia_variations.append(f"{city_name}, {location['country']}")
+            wikipedia_variations.append(city_name)
         
         for page_title in wikipedia_variations:
             try:

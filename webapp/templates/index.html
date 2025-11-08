@@ -268,6 +268,68 @@
             margin-bottom: 20px;
         }
         
+        .suggestions-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1000;
+            margin-top: 5px;
+        }
+        
+        .suggestion-item {
+            padding: 12px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.2s;
+        }
+        
+        .suggestion-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+        
+        .suggestion-item .suggestion-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 3px;
+        }
+        
+        .suggestion-item .suggestion-details {
+            font-size: 0.85em;
+            color: #666;
+        }
+        
+        body.dark-mode .suggestions-dropdown {
+            background: #2d2d44;
+            border-color: #444;
+        }
+        
+        body.dark-mode .suggestion-item {
+            border-bottom-color: #444;
+        }
+        
+        body.dark-mode .suggestion-item:hover {
+            background: #1a1a2e;
+        }
+        
+        body.dark-mode .suggestion-item .suggestion-name {
+            color: #e0e0e0;
+        }
+        
+        body.dark-mode .suggestion-item .suggestion-details {
+            color: #b0b0b0;
+        }
+        
         /* Dark mode styles */
         body.dark-mode {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
@@ -453,14 +515,17 @@
                     <p class="subtitle">Search for any city to see 7-day weather forecast and Wikipedia article</p>
                 </div>
                 <div class="controls">
-                    <button class="control-button" id="tempToggle" onclick="toggleTemperatureUnit()">°C / °F</button>
+                    <button class="control-button" id="unitToggle" onclick="toggleUnitSystem()">Imperial / Metric</button>
                     <button class="control-button" id="darkModeToggle" onclick="toggleDarkMode()">🌙 Dark</button>
                 </div>
             </div>
             
             <form class="search-box" id="searchForm">
-                <input type="text" id="cityInput" placeholder="Enter city name (e.g., Boston, Paris, Tokyo)" required>
-                <input type="text" id="countryInput" placeholder="Country (optional)" style="width: 200px;">
+                <div style="position: relative; flex: 1;">
+                    <input type="text" id="cityInput" placeholder="Enter city name (e.g., Boston, Paris, Tokyo)" required autocomplete="off">
+                    <div id="citySuggestions" class="suggestions-dropdown" style="display: none;"></div>
+                </div>
+                <input type="text" id="countryInput" placeholder="Country (optional)" style="width: 200px;" autocomplete="off">
                 <button type="submit">🔍 Search</button>
             </form>
             
@@ -492,19 +557,41 @@
     
     <script>
         let weatherChart = null;
-        let useFahrenheit = false;
+        let useImperial = false;
         let darkMode = false;
         
-        // Temperature conversion functions
+        // Unit conversion functions
         function celsiusToFahrenheit(celsius) {
             return (celsius * 9/5) + 32;
         }
         
+        function metersPerSecondToMph(mps) {
+            return mps * 2.237;
+        }
+        
+        function millimetersToInches(mm) {
+            return mm * 0.0393701;
+        }
+        
         function formatTemperature(celsius) {
             if (celsius === null || celsius === undefined) return 'N/A';
-            const temp = useFahrenheit ? celsiusToFahrenheit(celsius) : celsius;
-            const unit = useFahrenheit ? '°F' : '°C';
+            const temp = useImperial ? celsiusToFahrenheit(celsius) : celsius;
+            const unit = useImperial ? '°F' : '°C';
             return temp.toFixed(1) + unit;
+        }
+        
+        function formatWindSpeed(mps) {
+            if (mps === null || mps === undefined) return 'N/A';
+            const speed = useImperial ? metersPerSecondToMph(mps) : mps;
+            const unit = useImperial ? 'mph' : 'm/s';
+            return speed.toFixed(1) + ' ' + unit;
+        }
+        
+        function formatPrecipitation(mm) {
+            if (mm === null || mm === undefined || mm === 0) return null;
+            const amount = useImperial ? millimetersToInches(mm) : mm;
+            const unit = useImperial ? 'in' : 'mm';
+            return amount.toFixed(2) + ' ' + unit;
         }
         
         // Dark mode toggle
@@ -532,18 +619,18 @@
             }
         }
         
-        // Temperature unit toggle
-        function toggleTemperatureUnit() {
-            useFahrenheit = !useFahrenheit;
-            const button = document.getElementById('tempToggle');
-            if (useFahrenheit) {
-                button.textContent = '°F / °C';
+        // Unit system toggle (Imperial/Metric)
+        function toggleUnitSystem() {
+            useImperial = !useImperial;
+            const button = document.getElementById('unitToggle');
+            if (useImperial) {
+                button.textContent = 'Metric / Imperial';
                 button.classList.add('active');
             } else {
-                button.textContent = '°C / °F';
+                button.textContent = 'Imperial / Metric';
                 button.classList.remove('active');
             }
-            localStorage.setItem('useFahrenheit', useFahrenheit);
+            localStorage.setItem('useImperial', useImperial);
             // Refresh weather display if data is already loaded
             const contentEl = document.getElementById('content');
             if (contentEl && contentEl.style.display !== 'none') {
@@ -557,7 +644,7 @@
         // Load preferences from localStorage
         function loadPreferences() {
             const savedDarkMode = localStorage.getItem('darkMode');
-            const savedUseFahrenheit = localStorage.getItem('useFahrenheit');
+            const savedUseImperial = localStorage.getItem('useImperial');
             
             if (savedDarkMode === 'true') {
                 darkMode = true;
@@ -565,11 +652,103 @@
                 document.getElementById('darkModeToggle').textContent = '☀️ Light';
             }
             
-            if (savedUseFahrenheit === 'true') {
-                useFahrenheit = true;
-                const button = document.getElementById('tempToggle');
-                button.textContent = '°F / °C';
+            if (savedUseImperial === 'true') {
+                useImperial = true;
+                const button = document.getElementById('unitToggle');
+                button.textContent = 'Metric / Imperial';
                 button.classList.add('active');
+            }
+        }
+        
+        let searchTimeout = null;
+        let selectedCity = null;
+        
+        // Search for cities as user types
+        async function searchCities(query) {
+            if (!query || query.length < 2) {
+                hideSuggestions();
+                return;
+            }
+            
+            const countryInput = document.getElementById('countryInput');
+            const country = countryInput ? countryInput.value.trim() : '';
+            
+            try {
+                const params = new URLSearchParams({ q: query });
+                if (country) {
+                    params.append('country', country);
+                }
+                
+                const response = await fetch(`/api/search-cities?${params}`);
+                const data = await response.json();
+                
+                if (data.results && data.results.length > 0) {
+                    showSuggestions(data.results);
+                } else {
+                    hideSuggestions();
+                }
+            } catch (error) {
+                console.error('Error searching cities:', error);
+                hideSuggestions();
+            }
+        }
+        
+        // Show suggestions dropdown
+        function showSuggestions(results) {
+            const suggestionsEl = document.getElementById('citySuggestions');
+            if (!suggestionsEl) return;
+            
+            suggestionsEl.innerHTML = results.map(result => `
+                <div class="suggestion-item" data-city="${result.city}" data-region="${result.region}" data-country="${result.country}" data-lat="${result.latitude}" data-lon="${result.longitude}">
+                    <div class="suggestion-name">${result.display_name}</div>
+                    <div class="suggestion-details">${result.full_address}</div>
+                </div>
+            `).join('');
+            
+            suggestionsEl.style.display = 'block';
+            
+            // Add click handlers
+            suggestionsEl.querySelectorAll('.suggestion-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    selectCity({
+                        city: this.dataset.city,
+                        region: this.dataset.region,
+                        country: this.dataset.country,
+                        latitude: parseFloat(this.dataset.lat),
+                        longitude: parseFloat(this.dataset.lon),
+                        display_name: this.querySelector('.suggestion-name').textContent
+                    });
+                });
+            });
+        }
+        
+        // Hide suggestions dropdown
+        function hideSuggestions() {
+            const suggestionsEl = document.getElementById('citySuggestions');
+            if (suggestionsEl) {
+                suggestionsEl.style.display = 'none';
+            }
+        }
+        
+        // Select a city from suggestions
+        function selectCity(cityData) {
+            const cityInput = document.getElementById('cityInput');
+            const countryInput = document.getElementById('countryInput');
+            
+            if (cityInput) {
+                cityInput.value = cityData.display_name;
+            }
+            if (countryInput && cityData.country) {
+                countryInput.value = cityData.country;
+            }
+            
+            selectedCity = cityData;
+            hideSuggestions();
+            
+            // Auto-submit the form
+            const form = document.getElementById('searchForm');
+            if (form) {
+                form.dispatchEvent(new Event('submit'));
             }
         }
         
@@ -604,16 +783,26 @@
             emptyStateEl.style.display = 'none';
             
             try {
-                const response = await fetch('/api/lookup-city', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        city_name: cityName,
-                        country: countryInput.value.trim() || null
-                    })
-                });
+            // Use selected city coordinates if available, otherwise use city name
+            const requestBody = {
+                city_name: cityName,
+                country: countryInput.value.trim() || null
+            };
+            
+            if (selectedCity && selectedCity.latitude && selectedCity.longitude) {
+                requestBody.latitude = selectedCity.latitude;
+                requestBody.longitude = selectedCity.longitude;
+                requestBody.city = selectedCity.city;
+                requestBody.region = selectedCity.region;
+            }
+            
+            const response = await fetch('/api/lookup-city', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
                 
                 const data = await response.json();
                 
@@ -638,7 +827,9 @@
                 
                 // Load weather and Wikipedia
                 await loadWeather(data.location.id);
-                await loadWikipedia(data.location.name);
+                // Use city name for Wikipedia lookup (not the full display name)
+                const wikipediaQuery = selectedCity ? selectedCity.city : data.location.name;
+                await loadWikipedia(wikipediaQuery);
                 
                 contentEl.style.display = 'flex';
                 emptyStateEl.style.display = 'none';
@@ -651,21 +842,50 @@
             }
         }
         
-        // Set up form submission handler immediately
+        // Set up form submission handler and city search
         (function() {
             function setupFormHandler() {
                 const searchForm = document.getElementById('searchForm');
+                const cityInput = document.getElementById('cityInput');
+                
                 if (searchForm) {
                     searchForm.addEventListener('submit', function(e) {
                         e.preventDefault();
                         e.stopPropagation();
                         console.log('Form submitted'); // Debug log
+                        hideSuggestions();
                         lookupCity();
                         return false;
                     });
                     console.log('Form handler attached');
                 } else {
                     console.error('searchForm not found');
+                }
+                
+                // Set up city input search
+                if (cityInput) {
+                    cityInput.addEventListener('input', function(e) {
+                        const query = e.target.value.trim();
+                        selectedCity = null; // Clear selection when user types
+                        
+                        // Clear existing timeout
+                        if (searchTimeout) {
+                            clearTimeout(searchTimeout);
+                        }
+                        
+                        // Debounce search
+                        searchTimeout = setTimeout(() => {
+                            searchCities(query);
+                        }, 300);
+                    });
+                    
+                    // Hide suggestions when clicking outside
+                    document.addEventListener('click', function(e) {
+                        const suggestionsEl = document.getElementById('citySuggestions');
+                        if (suggestionsEl && !suggestionsEl.contains(e.target) && e.target !== cityInput) {
+                            hideSuggestions();
+                        }
+                    });
                 }
             }
             
@@ -680,7 +900,7 @@
         // Make functions available globally
         window.lookupCity = lookupCity;
         window.toggleDarkMode = toggleDarkMode;
-        window.toggleTemperatureUnit = toggleTemperatureUnit;
+        window.toggleUnitSystem = toggleUnitSystem;
         
         // Load preferences on page load
         if (document.readyState === 'loading') {
@@ -1177,7 +1397,7 @@
                                     ${currentWeather.wind_speed_mps !== null ? `
                                         <div>
                                             <div style="opacity: 0.8;">Wind</div>
-                                            <div style="font-weight: bold; font-size: 1.2em;">${currentWeather.wind_speed_mps.toFixed(1)} m/s</div>
+                                            <div style="font-weight: bold; font-size: 1.2em;">${formatWindSpeed(currentWeather.wind_speed_mps)}</div>
                                         </div>
                                     ` : ''}
                                     ${currentWeather.cloud_cover_percent !== null ? `
@@ -1189,7 +1409,7 @@
                                     ${currentWeather.precipitation_mm !== null && currentWeather.precipitation_mm > 0 ? `
                                         <div>
                                             <div style="opacity: 0.8;">Precipitation</div>
-                                            <div style="font-weight: bold; font-size: 1.2em;">${currentWeather.precipitation_mm.toFixed(1)} mm</div>
+                                            <div style="font-weight: bold; font-size: 1.2em;">${formatPrecipitation(currentWeather.precipitation_mm)}</div>
                                         </div>
                                     ` : ''}
                                 </div>
@@ -1234,7 +1454,7 @@
                                                 <span class="hour-detail-icon">💨</span>
                                                 <div>
                                                     <div class="hour-detail-label">Wind</div>
-                                                    <div class="hour-detail-value">${hour.wind.toFixed(1)} m/s</div>
+                                                    <div class="hour-detail-value">${formatWindSpeed(hour.wind)}</div>
                                                 </div>
                                             </div>
                                         ` : ''}
@@ -1243,7 +1463,7 @@
                                                 <span class="hour-detail-icon">🌧️</span>
                                                 <div>
                                                     <div class="hour-detail-label">Precipitation</div>
-                                                    <div class="hour-detail-value" style="color: #1976d2; font-weight: 700;">${hour.precipitation.toFixed(1)} mm</div>
+                                                    <div class="hour-detail-value" style="color: #1976d2; font-weight: 700;">${formatPrecipitation(hour.precipitation)}</div>
                                                 </div>
                                             </div>
                                         ` : ''}
@@ -1374,7 +1594,7 @@
                         weatherChart.destroy();
                     }
                     
-                    // Format labels as "MMM DD HH AM/PM"
+                    // Format labels as "MMM DD, HH AM/PM" (better format)
                     const labels = chartData.map(obs => {
                         const date = new Date(obs.observed_at);
                         // Convert to city timezone and format
@@ -1383,31 +1603,51 @@
                             month: 'short', 
                             day: 'numeric', 
                             hour: 'numeric', 
+                            minute: '2-digit',
                             hour12: true 
                         });
-                        // Parse and reformat to "MMM DD HH AM/PM" format
-                        // Format: "Nov 8, 2:47 PM" -> "Nov 8 2 PM"
+                        // Parse and reformat to "MMM DD, HH AM/PM" format
+                        // Format: "Nov 8, 2:47 PM" -> "Nov 8, 2 PM"
                         const parts = cityDateStr.split(', ');
                         if (parts.length >= 2) {
                             const datePart = parts[0]; // "Nov 8"
                             const timePart = parts[1]; // "2:47 PM"
-                            const hourOnly = timePart.split(':')[0] + ' ' + timePart.split(' ')[1]; // "2 PM"
-                            return `${datePart} ${hourOnly}`;
+                            // Extract hour and AM/PM (avoid duplicate)
+                            const timeMatch = timePart.match(/(\d{1,2}):\d{2}\s*(AM|PM)/i);
+                            if (timeMatch) {
+                                const hour = parseInt(timeMatch[1]);
+                                const period = timeMatch[2].toUpperCase();
+                                return `${datePart}, ${hour} ${period}`;
+                            }
+                            // Fallback: try simpler parsing
+                            const hourMatch = timePart.match(/(\d{1,2})\s*(AM|PM)/i);
+                            if (hourMatch) {
+                                const hour = parseInt(hourMatch[1]);
+                                const period = hourMatch[2].toUpperCase();
+                                return `${datePart}, ${hour} ${period}`;
+                            }
                         }
                         // Fallback: try to parse differently
-                        const match = cityDateStr.match(/(\w{3} \d{1,2}),? (\d{1,2}):\d{2} (AM|PM)/);
+                        const match = cityDateStr.match(/(\w{3} \d{1,2}),? (\d{1,2}):\d{2}\s*(AM|PM)/i);
                         if (match) {
-                            return `${match[1]} ${match[2]} ${match[3]}`;
+                            const hour = parseInt(match[2]);
+                            const period = match[3].toUpperCase();
+                            return `${match[1]}, ${hour} ${period}`;
                         }
                         return cityDateStr;
                     });
                     
                     const temps = chartData.map(obs => {
                         if (obs.temperature_celsius === null) return null;
-                        return useFahrenheit ? celsiusToFahrenheit(obs.temperature_celsius) : obs.temperature_celsius;
+                        return useImperial ? celsiusToFahrenheit(obs.temperature_celsius) : obs.temperature_celsius;
                     });
                     const humidities = chartData.map(obs => obs.humidity_percent);
-                    const tempUnit = useFahrenheit ? '°F' : '°C';
+                    const precipitations = chartData.map(obs => {
+                        if (obs.precipitation_mm === null || obs.precipitation_mm === undefined || obs.precipitation_mm === 0) return null;
+                        return useImperial ? millimetersToInches(obs.precipitation_mm) : obs.precipitation_mm;
+                    });
+                    const tempUnit = useImperial ? '°F' : '°C';
+                    const precipUnit = useImperial ? 'in' : 'mm';
                     
                     // Dark mode colors
                     const isDarkMode = document.body.classList.contains('dark-mode');
@@ -1437,6 +1677,16 @@
                                     yAxisID: 'y1',
                                     tension: 0.4,
                                     fill: true
+                                },
+                                {
+                                    type: 'bar',
+                                    label: `Precipitation (${precipUnit})`,
+                                    data: precipitations,
+                                    backgroundColor: 'rgba(33, 150, 243, 0.6)',
+                                    borderColor: 'rgb(33, 150, 243)',
+                                    borderWidth: 1,
+                                    yAxisID: 'y2',
+                                    order: 2
                                 }
                             ]
                         },
@@ -1490,6 +1740,26 @@
                                     title: {
                                         display: true,
                                         text: 'Humidity (%)',
+                                        color: textColor
+                                    }
+                                },
+                                y2: {
+                                    type: 'linear',
+                                    display: true,
+                                    position: 'right',
+                                    ticks: {
+                                        color: tickColor,
+                                        maxTicksLimit: 5,
+                                        callback: function(value) {
+                                            return value.toFixed(2);
+                                        }
+                                    },
+                                    grid: {
+                                        drawOnChartArea: false,
+                                    },
+                                    title: {
+                                        display: true,
+                                        text: `Precipitation (${precipUnit})`,
                                         color: textColor
                                     }
                                 }
