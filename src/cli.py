@@ -14,8 +14,10 @@ import subprocess
 import sys
 import os
 import re
+import requests
+import psycopg2
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -132,6 +134,219 @@ def run_pipeline(deployment: str):
     """Trigger a pipeline run via Prefect deployment."""
     click.echo(f"Triggering pipeline run: {deployment}")
     trigger_pipeline_run(deployment)
+
+
+@cli.command()
+@click.argument('city_name')
+@click.option('--country', help='Country name to narrow search (e.g., "United States")')
+def lookup(city_name: str, country: Optional[str]):
+    """
+    Get weather and Wikipedia data for a city by name.
+    
+    This command will:
+    1. Look up the city coordinates using geocoding
+    2. Add the location to the database
+    3. Fetch current weather data
+    4. Fetch Wikipedia page data
+    5. Store everything in the database
+    6. Display the results
+    
+    Example:
+        python src/cli.py lookup "New York"
+        python src/cli.py lookup "Paris" --country "France"
+    """
+    from src.extract import fetch_weather_from_api, store_weather_raw, fetch_wikipedia_from_api, store_wikipedia_raw
+    from src.transform import transform_weather_to_fact, transform_wikipedia_to_fact
+    
+    DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/dw")
+    GEOCODING_API = "https://nominatim.openstreetmap.org/search"
+    
+    click.echo(f"🔍 Looking up coordinates for {city_name}...")
+    
+    # Step 1: Geocode city
+    query = city_name
+    if country:
+        query = f"{city_name}, {country}"
+    
+    params = {
+        "q": query,
+        "format": "json",
+        "limit": 1,
+        "addressdetails": 1
+    }
+    
+    headers = {'User-Agent': 'DataWarehouseETL/1.0'}
+    
+    try:
+        response = requests.get(GEOCODING_API, params=params, headers=headers, timeout=10)
+        response.raise_for_status()
+        results = response.json()
+        
+        if not results:
+            click.echo(f"❌ City '{city_name}' not found")
+            return
+        
+        result = results[0]
+        address = result.get("address", {})
+        
+        location = {
+            "location_name": city_name,
+            "latitude": float(result["lat"]),
+            "longitude": float(result["lon"]),
+            "city": address.get("city") or address.get("town") or address.get("village") or city_name,
+            "region": address.get("state") or address.get("region") or "",
+            "country": address.get("country") or ""
+        }
+        
+        click.echo(f"✅ Found: {location['city']}, {location.get('region', '')}, {location.get('country', '')}")
+        click.echo(f"   Coordinates: {location['latitude']}, {location['longitude']}")
+        
+    except Exception as e:
+        click.echo(f"❌ Error geocoding city: {e}")
+        return
+    
+    # Step 2: Add location to database
+    click.echo(f"\n📝 Adding location to database...")
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            INSERT INTO core.location 
+            (location_name, latitude, longitude, city, region, country)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (location_name, latitude, longitude) DO UPDATE SET
+                city = EXCLUDED.city,
+                region = EXCLUDED.region,
+                country = EXCLUDED.country
+            RETURNING location_id
+        """, (
+            location["location_name"],
+            location["latitude"],
+            location["longitude"],
+            location["city"],
+            location["region"],
+            location["country"]
+        ))
+        
+        location_id = cursor.fetchone()[0]
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        click.echo(f"✅ Location added (ID: {location_id})")
+    except Exception as e:
+        click.echo(f"⚠️  Location might already exist: {e}")
+    
+    # Step 3: Fetch weather data
+    click.echo(f"\n🌤️  Fetching weather data...")
+    try:
+        weather_data = fetch_weather_from_api(location)
+        raw_id = store_weather_raw(location, weather_data)
+        click.echo(f"✅ Weather data fetched and stored (raw_id: {raw_id})")
+        
+        # Transform weather
+        transform_result = transform_weather_to_fact()
+        click.echo(f"✅ Weather transformed: {transform_result.get('rows_inserted', 0)} rows inserted")
+    except Exception as e:
+        click.echo(f"❌ Weather fetch failed: {e}")
+        weather_data = None
+    
+    # Step 4: Fetch Wikipedia data
+    click.echo(f"\n📚 Fetching Wikipedia data for '{city_name}'...")
+    try:
+        wikipedia_page = {
+            "page_title": city_name,
+            "page_language": "en"
+        }
+        summary_data, content_size = fetch_wikipedia_from_api(wikipedia_page)
+        raw_id = store_wikipedia_raw(wikipedia_page, summary_data, content_size)
+        click.echo(f"✅ Wikipedia data fetched and stored (raw_id: {raw_id})")
+        
+        # Transform Wikipedia
+        transform_result = transform_wikipedia_to_fact()
+        click.echo(f"✅ Wikipedia transformed: {transform_result.get('revisions_inserted', 0)} revisions inserted")
+    except Exception as e:
+        click.echo(f"⚠️  Wikipedia fetch failed: {e}")
+        summary_data = None
+    
+    # Step 5: Query and display results
+    click.echo(f"\n📊 Retrieving data from database...")
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cursor = conn.cursor()
+        
+        # Get latest weather observations
+        cursor.execute("""
+            SELECT 
+                w.observed_at,
+                w.temperature_celsius,
+                w.humidity_percent,
+                w.wind_speed_mps
+            FROM core.weather w
+            WHERE w.location_id = %s
+            ORDER BY w.observed_at DESC
+            LIMIT 24
+        """, (location_id,))
+        
+        weather_obs = cursor.fetchall()
+        
+        # Get Wikipedia summary from raw table
+        cursor.execute("""
+            SELECT 
+                payload->>'title' as title,
+                payload->>'extract' as extract,
+                payload->'content_urls'->'desktop'->>'page' as url,
+                payload->>'pageid' as pageid
+            FROM raw.wikipedia_pages
+            WHERE page_title = %s
+            ORDER BY ingested_at DESC
+            LIMIT 1
+        """, (city_name,))
+        
+        wiki_result = cursor.fetchone()
+        
+        cursor.close()
+        conn.close()
+        
+        # Display results
+        click.echo("\n" + "="*60)
+        click.echo(f"📍 LOCATION: {location['city']}")
+        click.echo("="*60)
+        click.echo(f"City: {location['city']}")
+        click.echo(f"Region: {location.get('region', 'N/A')}")
+        click.echo(f"Country: {location.get('country', 'N/A')}")
+        click.echo(f"Coordinates: {location['latitude']}, {location['longitude']}")
+        
+        if weather_obs:
+            click.echo("\n" + "-"*60)
+            click.echo("🌤️  WEATHER DATA (Latest observations)")
+            click.echo("-"*60)
+            click.echo(f"{'Time':<20} {'Temp (°C)':<12} {'Humidity (%)':<15} {'Wind (m/s)':<12}")
+            click.echo("-"*60)
+            for obs in weather_obs[:10]:
+                temp = f"{obs[1]:.1f}" if obs[1] else "N/A"
+                humidity = f"{obs[2]:.0f}" if obs[2] else "N/A"
+                wind = f"{obs[3]:.1f}" if obs[3] else "N/A"
+                click.echo(f"{str(obs[0]):<20} {temp:<12} {humidity:<15} {wind:<12}")
+            if len(weather_obs) > 10:
+                click.echo(f"... and {len(weather_obs) - 10} more observations")
+        
+        if wiki_result and wiki_result[0]:
+            click.echo("\n" + "-"*60)
+            click.echo("📚 WIKIPEDIA SUMMARY")
+            click.echo("-"*60)
+            click.echo(f"Title: {wiki_result[0]}")
+            if wiki_result[2]:
+                click.echo(f"URL: {wiki_result[2]}")
+            if wiki_result[1]:
+                extract = wiki_result[1][:500] + "..." if len(wiki_result[1]) > 500 else wiki_result[1]
+                click.echo(f"\n{extract}")
+        
+        click.echo("\n✅ Data stored in database! Query it in Adminer at http://localhost:8080")
+        
+    except Exception as e:
+        click.echo(f"❌ Error retrieving data: {e}")
 
 
 def update_sql_seeds(name: str, latitude: float, longitude: float, city: str, region: str, country: str):

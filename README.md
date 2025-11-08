@@ -52,10 +52,14 @@ Prefect UI will be available at http://127.0.0.1:4200
 
 Open `docs/architecture.html` in your browser for a visual overview of the system architecture.
 
-### 5. Use CLI Tool (Optional)
+### 5. Use CLI Tool
 
 ```bash
-# Add a new location
+# Look up a city by name (automatically geocodes, fetches weather & Wikipedia)
+python src/cli.py lookup "New York"
+python src/cli.py lookup "Paris" --country "France"
+
+# Or manually add a location with coordinates
 python src/cli.py add-location \
     --name "San Francisco" \
     --lat 37.7749 \
