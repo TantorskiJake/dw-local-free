@@ -1,0 +1,43 @@
+{
+  "type": "standard",
+  "title": "Boston",
+  "displaytitle": "Boston",
+  "namespace": {
+    "id": 0,
+    "text": ""
+  },
+  "wikibase_item": "Q100",
+  "titles": {
+    "canonical": "Boston",
+    "normalized": "Boston",
+    "display": "Boston"
+  },
+  "pageid": 12345,
+  "thumbnail": {
+    "source": "https://upload.wikimedia.org/wikipedia/commons/thumb/example.jpg",
+    "width": 640,
+    "height": 480
+  },
+  "originalimage": {
+    "source": "https://upload.wikimedia.org/wikipedia/commons/example.jpg",
+    "width": 2000,
+    "height": 1500
+  },
+  "lang": "en",
+  "dir": "ltr",
+  "revision": "123456789",
+  "tid": "abc123-def456-ghi789",
+  "timestamp": "2024-11-08T12:00:00Z",
+  "description": "Capital and largest city of Massachusetts",
+  "content_urls": {
+    "desktop": {
+      "page": "https://en.wikipedia.org/wiki/Boston"
+    },
+    "mobile": {
+      "page": "https://en.m.wikipedia.org/wiki/Boston"
+    }
+  },
+  "extract": "Boston is the capital and most populous city...",
+  "extract_html": "<p>Boston is the capital and most populous city...</p>"
+}
+
