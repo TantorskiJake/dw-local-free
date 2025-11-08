@@ -565,6 +565,14 @@ ORDER BY temperature_range DESC;
 - Adjust data quality expectations in `src/data_quality.py`
 - Add more locations or Wikipedia pages in `src/seed_data.yaml`
 
+## Documentation
+
+- **[Operations Runbook](docs/runbook.md)** - Day-to-day operations, failure modes, and recovery procedures
+- **[Performance Guide](docs/performance.md)** - Partitioning, concurrency, and scaling strategies
+- **[Architecture Diagram](docs/architecture.html)** - Visual overview of the system architecture
+- **[Data Contracts](docs/data_contracts.md)** - API response structures and field definitions
+- **[Acceptance Checklist](docs/ACCEPTANCE_CHECKLIST.md)** - Verification checklist for all components
+
 ---
 
 ## Contributing
