@@ -1,5 +1,5 @@
 """
-Prefect flows and tasks for data warehouse orchestration.
+Workflows and tasks for data warehouse orchestration.
 """
 
 from .daily_pipeline import daily_pipeline

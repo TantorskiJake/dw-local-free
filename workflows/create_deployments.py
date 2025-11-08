@@ -11,7 +11,7 @@ Or use Prefect CLI:
 
 from prefect import serve
 from prefect.client.schemas.schedules import CronSchedule
-from prefect.daily_pipeline import daily_pipeline
+from workflows.daily_pipeline import daily_pipeline
 
 def create_weather_deployment():
     """Create deployment for hourly weather schedule."""

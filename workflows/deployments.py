@@ -8,7 +8,7 @@ This module creates deployments for the daily_pipeline flow with different sched
 
 from prefect import serve
 from prefect.client.schemas.schedules import CronSchedule
-from prefect.daily_pipeline import daily_pipeline
+from workflows.daily_pipeline import daily_pipeline
 
 # Weather deployment: Hourly on the half hour (30 minutes past each hour) in UTC
 weather_deployment = daily_pipeline.to_deployment(

@@ -14,7 +14,7 @@ Or use Prefect serve:
 
 from prefect import serve
 from prefect.client.schemas.schedules import CronSchedule
-from prefect.daily_pipeline import daily_pipeline
+from workflows.daily_pipeline import daily_pipeline
 
 if __name__ == "__main__":
     # Create and serve weather deployment

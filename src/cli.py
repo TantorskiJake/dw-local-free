@@ -245,7 +245,7 @@ def trigger_pipeline_run(deployment: str = 'weather-schedule'):
             
             # Fallback to direct Python execution
             result = subprocess.run(
-                [sys.executable, '-m', 'prefect.daily_pipeline'],
+                [sys.executable, '-m', 'workflows.daily_pipeline'],
                 cwd=PROJECT_ROOT
             )
             
@@ -258,7 +258,7 @@ def trigger_pipeline_run(deployment: str = 'weather-schedule'):
     except FileNotFoundError:
         click.echo("⚠️  Prefect CLI not found. Running pipeline directly...")
         result = subprocess.run(
-            [sys.executable, '-m', 'prefect.daily_pipeline'],
+            [sys.executable, '-m', 'workflows.daily_pipeline'],
             cwd=PROJECT_ROOT
         )
         
