@@ -154,9 +154,9 @@
         }
         
         .weather-hour.today {
-            background: linear-gradient(135deg, #e7f3ff 0%, #d6e9ff 100%);
-            border-left: 4px solid #667eea;
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+            /* Match future days styling - no special blue background */
+            background: #f8f9fa;
+            border-left: 1px solid #e0e0e0;
         }
         
         .hour-time {
@@ -166,7 +166,7 @@
         }
         
         .hour-time.today {
-            color: #667eea;
+            color: #333; /* Match regular hour time color */
         }
         
         .hour-temp {
@@ -305,8 +305,9 @@
         }
         
         body.dark-mode .weather-hour.today {
-            background: #2a3a5e;
-            border-left-color: #667eea;
+            /* Match future days styling in dark mode */
+            background: #1a1a2e;
+            border-left-color: #333;
         }
         
         body.dark-mode .hour-time {
@@ -314,7 +315,7 @@
         }
         
         body.dark-mode .hour-time.today {
-            color: #667eea;
+            color: #e0e0e0; /* Match regular hour time color in dark mode */
         }
         
         body.dark-mode .hour-temp {
@@ -341,6 +342,10 @@
         
         body.dark-mode .weather-hour:hover {
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        
+        body.dark-mode .current-weather-card {
+            background: linear-gradient(135deg, #2a3a5e 0%, #1a1a2e 100%);
         }
         
         body.dark-mode .wikipedia-content {
@@ -751,27 +756,120 @@
                 // Get current time in user's local timezone
                 const currentTime = new Date();
                 
-                // Sort observations by time and get data for 7 days (3 days ago to 3 days ahead)
-                // But also include today even if it's early in the day
+                // Sort observations by time - include all observations for current weather selection
+                // (we'll filter for display separately)
                 const sortedObservations = data.observations
-                    .filter(obs => {
-                        const obsDate = new Date(obs.observed_at);
-                        // Show data from 3 days ago to 3 days ahead (7 days total)
-                        const daysDiff = (obsDate - currentTime) / (1000 * 60 * 60 * 24);
-                        return daysDiff >= -3 && daysDiff <= 3;
-                    })
                     .sort((a, b) => new Date(a.observed_at) - new Date(b.observed_at));
                 
-                console.log(`Total observations: ${data.observations.length}, Filtered: ${sortedObservations.length}`);
+                // Filter for display (7-day view: 3 days ago to 3 days ahead)
+                const displayObservations = sortedObservations.filter(obs => {
+                    const obsDate = new Date(obs.observed_at);
+                    const daysDiff = (obsDate - currentTime) / (1000 * 60 * 60 * 24);
+                    return daysDiff >= -3.5 && daysDiff <= 3.5;
+                });
+                
+                console.log(`Total observations: ${data.observations.length}, For display: ${displayObservations.length}`);
                 if (sortedObservations.length > 0) {
                     const firstObs = new Date(sortedObservations[0].observed_at);
                     const lastObs = new Date(sortedObservations[sortedObservations.length - 1].observed_at);
                     console.log(`First observation: ${firstObs.toLocaleString()}, Last: ${lastObs.toLocaleString()}`);
                 }
                 
-                // Group by day for organization (using local timezone)
+                // Group by day for organization (using local timezone) - use displayObservations for the forecast
+                // Filter to only show current hour and future hours (hide past hours for today)
+                // Estimate city timezone for proper filtering
+                let cityTimezone = 'America/New_York';
+                if (data.location.latitude && data.location.longitude) {
+                    const lat = data.location.latitude;
+                    const lon = data.location.longitude;
+                    const country = (data.location.country || '').toLowerCase();
+                    
+                    if (country.includes('united states') || country.includes('usa') || !country) {
+                        if (lon < -102) {
+                            cityTimezone = lon < -115 ? 'America/Los_Angeles' : 'America/Denver';
+                        } else if (lon < -85) {
+                            cityTimezone = 'America/Chicago';
+                        } else {
+                            cityTimezone = 'America/New_York';
+                        }
+                    } else if (lon >= -10 && lon <= 40 && lat >= 35 && lat <= 70) {
+                        if (lon < 5) cityTimezone = 'Europe/London';
+                        else if (lon < 15) cityTimezone = 'Europe/Paris';
+                        else if (lon < 30) cityTimezone = 'Europe/Moscow';
+                        else cityTimezone = 'Europe/London';
+                    } else if (lon >= 70 && lon <= 150 && lat >= 0 && lat <= 60) {
+                        if (lon < 100) cityTimezone = 'Asia/Shanghai';
+                        else if (lon < 135) cityTimezone = 'Asia/Tokyo';
+                        else cityTimezone = 'Asia/Shanghai';
+                    }
+                }
+                
+                // Get current time in city's timezone for filtering
+                const nowForFilter = new Date();
+                const cityTimeFormatter = new Intl.DateTimeFormat('en-US', {
+                    timeZone: cityTimezone,
+                    hour: 'numeric',
+                    hour12: false,
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                });
+                const nowCityParts = cityTimeFormatter.formatToParts(nowForFilter);
+                const nowCityYear = parseInt(nowCityParts.find(p => p.type === 'year').value);
+                const nowCityMonth = parseInt(nowCityParts.find(p => p.type === 'month').value) - 1;
+                const nowCityDay = parseInt(nowCityParts.find(p => p.type === 'day').value);
+                const nowCityHour = parseInt(nowCityParts.find(p => p.type === 'hour').value);
+                
+                const filteredForDisplay = displayObservations.filter(obs => {
+                    const obsDateStr = obs.observed_at;
+                    const hasTimezone = obsDateStr.includes('+') || obsDateStr.includes('Z') || 
+                                       (obsDateStr.match(/[+-]\d{2}:\d{2}$/) !== null);
+                    
+                    let obsYear, obsMonth, obsDay, obsHour;
+                    if (!hasTimezone) {
+                        const normalized = obsDateStr.replace(' ', 'T');
+                        const parts = normalized.split('T');
+                        if (parts.length >= 2) {
+                            const datePart = parts[0].split('-');
+                            const timePart = parts[1].split(':');
+                            obsYear = parseInt(datePart[0]);
+                            obsMonth = parseInt(datePart[1]) - 1;
+                            obsDay = parseInt(datePart[2]);
+                            obsHour = parseInt(timePart[0]);
+                        } else {
+                            return true; // Include if can't parse
+                        }
+                    } else {
+                        const obsDate = new Date(obsDateStr);
+                        const obsCityParts = cityTimeFormatter.formatToParts(obsDate);
+                        obsYear = parseInt(obsCityParts.find(p => p.type === 'year').value);
+                        obsMonth = parseInt(obsCityParts.find(p => p.type === 'month').value) - 1;
+                        obsDay = parseInt(obsCityParts.find(p => p.type === 'day').value);
+                        obsHour = parseInt(obsCityParts.find(p => p.type === 'hour').value);
+                    }
+                    
+                    // Check if same day as current time in city timezone
+                    const sameDay = (obsYear === nowCityYear && obsMonth === nowCityMonth && obsDay === nowCityDay);
+                    
+                    // Check if this is a past day
+                    const obsDateObj = new Date(obsYear, obsMonth, obsDay);
+                    const nowDateObj = new Date(nowCityYear, nowCityMonth, nowCityDay);
+                    const isPastDay = obsDateObj < nowDateObj;
+                    
+                    if (isPastDay) {
+                        // Exclude all past days
+                        return false;
+                    } else if (sameDay) {
+                        // For today: only show current hour and future hours
+                        return obsHour >= nowCityHour;
+                    } else {
+                        // For future days: show all hours
+                        return true;
+                    }
+                });
+                
                 const hoursByDay = {};
-                sortedObservations.forEach(obs => {
+                filteredForDisplay.forEach(obs => {
                     // Parse the UTC date string and convert to local time
                     const obsDate = new Date(obs.observed_at);
                     
@@ -812,7 +910,21 @@
                     
                     // Display time in local timezone
                     const timeStr = obsDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-                    const isNow = Math.abs(obsDate - currentTime) < 60 * 60 * 1000; // Within 1 hour of now
+                    
+                    // Determine if this is the "current" hour - the hour that contains the current time
+                    // Get the hour component of both the observation and current time
+                    const obsHour = obsDate.getHours();
+                    const currentHour = currentTime.getHours();
+                    const obsDateOnly = new Date(obsDate.getFullYear(), obsDate.getMonth(), obsDate.getDate());
+                    const currentDateOnly = new Date(currentTime.getFullYear(), currentTime.getMonth(), currentTime.getDate());
+                    
+                    // It's "Now" if it's the same day and same hour as the current time
+                    // Also check if the observation is in the past but within the last hour
+                    const isSameDay = obsDateOnly.getTime() === currentDateOnly.getTime();
+                    const isSameHour = obsHour === currentHour;
+                    const timeDiff = currentTime - obsDate;
+                    const isRecentPast = timeDiff >= 0 && timeDiff < 60 * 60 * 1000; // Within last hour
+                    const isNow = isSameDay && (isSameHour || isRecentPast);
                     
                     hoursByDay[dayKey].hours.push({
                         time: timeStr,
@@ -826,30 +938,275 @@
                     });
                 });
                 
-                // Check if we have data for today
-                const hasTodayData = hoursByDay[todayKey] && hoursByDay[todayKey].hours.length > 0;
-                
-                // Render hourly forecast
-                const daysArray = Object.keys(hoursByDay).sort();
-                let html = '<div class="weather-hours">';
-                
-                // Always show "Today" first, even if there's no data
-                if (!hasTodayData) {
-                    const todayDateObj = new Date(localYear, localMonth, localDay);
-                    const todayName = todayDateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+                // Find current weather - prefer the observation closest to now in city's timezone
+                let currentWeather = null;
+                if (sortedObservations.length > 0) {
+                    // Estimate city timezone first (needed for proper time comparison)
+                    let cityTimezone = 'America/New_York';
+                    if (data.location.latitude && data.location.longitude) {
+                        const lat = data.location.latitude;
+                        const lon = data.location.longitude;
+                        const country = (data.location.country || '').toLowerCase();
+                        
+                        if (country.includes('united states') || country.includes('usa') || !country) {
+                            if (lon < -102) {
+                                cityTimezone = lon < -115 ? 'America/Los_Angeles' : 'America/Denver';
+                            } else if (lon < -85) {
+                                cityTimezone = 'America/Chicago';
+                            } else {
+                                cityTimezone = 'America/New_York';
+                            }
+                        } else if (lon >= -10 && lon <= 40 && lat >= 35 && lat <= 70) {
+                            if (lon < 5) cityTimezone = 'Europe/London';
+                            else if (lon < 15) cityTimezone = 'Europe/Paris';
+                            else if (lon < 30) cityTimezone = 'Europe/Moscow';
+                            else cityTimezone = 'Europe/London';
+                        } else if (lon >= 70 && lon <= 150 && lat >= 0 && lat <= 60) {
+                            if (lon < 100) cityTimezone = 'Asia/Shanghai';
+                            else if (lon < 135) cityTimezone = 'Asia/Tokyo';
+                            else cityTimezone = 'Asia/Shanghai';
+                        }
+                    }
                     
-                    // Show message for today if no data (before rendering other days)
-                    html += `<div style="margin-bottom: 20px; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 5px;">
-                        <h3 style="color: #856404; margin-bottom: 5px; font-size: 1.1em;">Today (${todayName})</h3>
-                        <p style="color: #856404; font-size: 0.9em;">No hourly forecast data available for today. The API provides forecast data starting from tomorrow.</p>
+                    // Get current time in city's timezone
+                    const now = new Date();
+                    const cityTimeFormatter = new Intl.DateTimeFormat('en-US', {
+                        timeZone: cityTimezone,
+                        hour: 'numeric',
+                        hour12: false,
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit'
+                    });
+                    
+                    // Parse current time in city timezone
+                    const nowCityParts = cityTimeFormatter.formatToParts(now);
+                    const nowCityYear = parseInt(nowCityParts.find(p => p.type === 'year').value);
+                    const nowCityMonth = parseInt(nowCityParts.find(p => p.type === 'month').value) - 1; // 0-indexed
+                    const nowCityDay = parseInt(nowCityParts.find(p => p.type === 'day').value);
+                    const nowCityHour = parseInt(nowCityParts.find(p => p.type === 'hour').value);
+                    
+                    console.log(`Current time in ${cityTimezone}: ${nowCityYear}-${nowCityMonth+1}-${nowCityDay} ${nowCityHour}:00`);
+                    
+                    let bestObs = null;
+                    let bestScore = -Infinity;
+                    
+                    sortedObservations.forEach(obs => {
+                        // Parse observation timestamp - treat it as if it's in city timezone
+                        // (since API returns data in city timezone, but DB stores without TZ)
+                        const obsDateStr = obs.observed_at;
+                        
+                        // Check if timestamp has timezone info (has +, Z, or timezone offset like -05:00)
+                        const hasTimezone = obsDateStr.includes('+') || obsDateStr.includes('Z') || 
+                                           (obsDateStr.match(/[+-]\d{2}:\d{2}$/) !== null);
+                        
+                        let obsYear, obsMonth, obsDay, obsHour;
+                        
+                        if (!hasTimezone) {
+                            // No timezone info - treat as city timezone
+                            // Handle both "2025-11-08T00:00:00" and "2025-11-08 00:00:00" formats
+                            const normalized = obsDateStr.replace(' ', 'T');
+                            const parts = normalized.split('T');
+                            if (parts.length >= 2) {
+                                const datePart = parts[0].split('-');
+                                const timePart = parts[1].split(':');
+                                obsYear = parseInt(datePart[0]);
+                                obsMonth = parseInt(datePart[1]) - 1; // 0-indexed
+                                obsDay = parseInt(datePart[2]);
+                                obsHour = parseInt(timePart[0]);
+                            } else {
+                                return; // Skip invalid timestamp
+                            }
+                        } else {
+                            // Has timezone info - convert to city timezone
+                            const obsDate = new Date(obsDateStr);
+                            const obsCityParts = cityTimeFormatter.formatToParts(obsDate);
+                            obsYear = parseInt(obsCityParts.find(p => p.type === 'year').value);
+                            obsMonth = parseInt(obsCityParts.find(p => p.type === 'month').value) - 1;
+                            obsDay = parseInt(obsCityParts.find(p => p.type === 'day').value);
+                            obsHour = parseInt(obsCityParts.find(p => p.type === 'hour').value);
+                        }
+                        
+                        // Compare with current time in city timezone
+                        const sameDay = (obsYear === nowCityYear && obsMonth === nowCityMonth && obsDay === nowCityDay);
+                        const sameHour = (obsHour === nowCityHour);
+                        const nextHour = (obsHour === nowCityHour + 1) || (nowCityHour === 23 && obsHour === 0);
+                        const prevHour = (obsHour === nowCityHour - 1) || (nowCityHour === 0 && obsHour === 23);
+                        
+                        let score = 0;
+                        
+                        if (sameDay && sameHour) {
+                            // Perfect match - current hour
+                            score = 10000;
+                        } else if (sameDay && nextHour) {
+                            // Next hour on same day (forecast) - strongly prefer
+                            score = 8000;
+                        } else if (sameDay && prevHour) {
+                            // Previous hour on same day (recent past)
+                            score = 6000;
+                        } else if (sameDay) {
+                            // Same day, different hour
+                            const hourDiff = Math.abs(obsHour - nowCityHour);
+                            // Prefer future hours over past hours
+                            if (obsHour > nowCityHour) {
+                                score = 5000 - (hourDiff * 50); // Future hours
+                            } else {
+                                score = 3000 - (hourDiff * 100); // Past hours
+                            }
+                        } else {
+                            // Different day - calculate day difference
+                            const obsDateObj = new Date(obsYear, obsMonth, obsDay, obsHour);
+                            const nowDateObj = new Date(nowCityYear, nowCityMonth, nowCityDay, nowCityHour);
+                            const dayDiff = Math.abs((obsDateObj - nowDateObj) / (1000 * 60 * 60 * 24));
+                            
+                            if (dayDiff <= 1) {
+                                // Prefer future days
+                                if (obsDateObj > nowDateObj) {
+                                    score = 2000 - (dayDiff * 500);
+                                } else {
+                                    score = 1000 - (dayDiff * 500);
+                                }
+                            } else {
+                                score = 0; // Too far away
+                            }
+                        }
+                        
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestObs = obs;
+                            console.log(`New best observation: ${obsYear}-${obsMonth+1}-${obsDay} ${obsHour}:00, score: ${score}`);
+                        }
+                    });
+                    
+                    if (bestObs) {
+                        const bestParts = bestObs.observed_at.replace(' ', 'T').split('T');
+                        console.log(`Selected current weather: ${bestObs.observed_at} (best score: ${bestScore})`);
+                    }
+                    
+                    currentWeather = bestObs || sortedObservations[sortedObservations.length - 1];
+                }
+                
+                // Render current weather card
+                let html = '';
+                if (currentWeather) {
+                    // Get city's timezone from coordinates and country
+                    // Estimate timezone from longitude and country
+                    let cityTimezone = 'America/New_York'; // Default
+                    if (data.location.latitude && data.location.longitude) {
+                        const lat = data.location.latitude;
+                        const lon = data.location.longitude;
+                        const country = (data.location.country || '').toLowerCase();
+                        
+                        // US timezones (based on longitude)
+                        if (country.includes('united states') || country.includes('usa') || !country) {
+                            if (lon < -102) {
+                                cityTimezone = lon < -115 ? 'America/Los_Angeles' : 'America/Denver';
+                            } else if (lon < -85) {
+                                cityTimezone = 'America/Chicago';
+                            } else {
+                                cityTimezone = 'America/New_York';
+                            }
+                        }
+                        // Europe (rough estimate)
+                        else if (lon >= -10 && lon <= 40 && lat >= 35 && lat <= 70) {
+                            if (lon < 5) cityTimezone = 'Europe/London';
+                            else if (lon < 15) cityTimezone = 'Europe/Paris';
+                            else if (lon < 30) cityTimezone = 'Europe/Moscow';
+                            else cityTimezone = 'Europe/London';
+                        }
+                        // Asia
+                        else if (lon >= 70 && lon <= 150 && lat >= 0 && lat <= 60) {
+                            if (lon < 100) cityTimezone = 'Asia/Shanghai';
+                            else if (lon < 135) cityTimezone = 'Asia/Tokyo';
+                            else cityTimezone = 'Asia/Shanghai';
+                        }
+                        // Australia
+                        else if (lon >= 110 && lon <= 155 && lat >= -45 && lat <= -10) {
+                            if (lon < 142) cityTimezone = 'Australia/Adelaide';
+                            else if (lon < 150) cityTimezone = 'Australia/Sydney';
+                            else cityTimezone = 'Australia/Melbourne';
+                        }
+                        // Default: estimate from longitude (15 degrees per timezone)
+                        else {
+                            const timezoneOffset = Math.round(lon / 15);
+                            // Use UTC as base and estimate
+                            cityTimezone = 'UTC'; // Fallback, will show in UTC
+                        }
+                    }
+                    
+                    // Get actual current time in city's timezone
+                    const nowInCity = new Date();
+                    const cityTime = nowInCity.toLocaleString('en-US', { 
+                        timeZone: cityTimezone,
+                        weekday: 'long', 
+                        month: 'long', 
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+                    
+                    // Also show the observation time for reference
+                    const obsDate = new Date(currentWeather.observed_at);
+                    const obsTime = obsDate.toLocaleString('en-US', { 
+                        timeZone: cityTimezone,
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+                    
+                    html += `<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 20px;">
+                            <div>
+                                <h2 style="color: white; margin-bottom: 10px; font-size: 2em;">Current Weather</h2>
+                                <p style="color: rgba(255,255,255,0.9); font-size: 1.1em; margin-bottom: 5px;">${data.location.city}, ${data.location.region || data.location.country}</p>
+                                <p style="color: rgba(255,255,255,0.9); font-size: 1em; font-weight: 500; margin-bottom: 3px;">${cityTime}</p>
+                                <p style="color: rgba(255,255,255,0.7); font-size: 0.85em;">Weather data from ${obsTime}</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 4em; font-weight: bold; line-height: 1;">
+                                    ${formatTemperature(currentWeather.temperature_celsius)}
+                                </div>
+                                <div style="display: flex; gap: 20px; margin-top: 15px; font-size: 0.95em;">
+                                    ${currentWeather.humidity_percent !== null ? `
+                                        <div>
+                                            <div style="opacity: 0.8;">Humidity</div>
+                                            <div style="font-weight: bold; font-size: 1.2em;">${currentWeather.humidity_percent.toFixed(0)}%</div>
+                                        </div>
+                                    ` : ''}
+                                    ${currentWeather.wind_speed_mps !== null ? `
+                                        <div>
+                                            <div style="opacity: 0.8;">Wind</div>
+                                            <div style="font-weight: bold; font-size: 1.2em;">${currentWeather.wind_speed_mps.toFixed(1)} m/s</div>
+                                        </div>
+                                    ` : ''}
+                                    ${currentWeather.cloud_cover_percent !== null ? `
+                                        <div>
+                                            <div style="opacity: 0.8;">Clouds</div>
+                                            <div style="font-weight: bold; font-size: 1.2em;">${currentWeather.cloud_cover_percent.toFixed(0)}%</div>
+                                        </div>
+                                    ` : ''}
+                                    ${currentWeather.precipitation_mm !== null && currentWeather.precipitation_mm > 0 ? `
+                                        <div>
+                                            <div style="opacity: 0.8;">Precipitation</div>
+                                            <div style="font-weight: bold; font-size: 1.2em;">${currentWeather.precipitation_mm.toFixed(1)} mm</div>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
                     </div>`;
                 }
                 
+                // Render hourly forecast
+                html += '<div class="weather-hours">';
+                const daysArray = Object.keys(hoursByDay).sort();
+                
                 daysArray.forEach(dayKey => {
                     const dayData = hoursByDay[dayKey];
-                    // Skip rendering if this is today and we already showed the "no data" message
-                    if (dayKey === todayKey && !hasTodayData && dayData.hours.length === 0) {
-                        return; // Skip - we already showed the message above
+                    // Skip empty days
+                    if (dayData.hours.length === 0) {
+                        return;
                     }
                     html += `<div style="margin-bottom: 25px;">
                         <h3 style="color: #667eea; margin-bottom: 15px; font-size: 1.2em; font-weight: 600;">${dayData.dayName}</h3>
@@ -882,19 +1239,11 @@
                                             </div>
                                         ` : ''}
                                         ${hour.precipitation !== null && hour.precipitation > 0 ? `
-                                            <div class="hour-detail">
+                                            <div class="hour-detail" style="background: #e3f2fd; border-left: 3px solid #2196f3;">
                                                 <span class="hour-detail-icon">🌧️</span>
                                                 <div>
                                                     <div class="hour-detail-label">Precipitation</div>
-                                                    <div class="hour-detail-value">${hour.precipitation.toFixed(1)} mm</div>
-                                                </div>
-                                            </div>
-                                        ` : hour.precipitation !== null ? `
-                                            <div class="hour-detail" style="opacity: 0.6;">
-                                                <span class="hour-detail-icon">🌧️</span>
-                                                <div>
-                                                    <div class="hour-detail-label">Precipitation</div>
-                                                    <div class="hour-detail-value">0 mm</div>
+                                                    <div class="hour-detail-value" style="color: #1976d2; font-weight: 700;">${hour.precipitation.toFixed(1)} mm</div>
                                                 </div>
                                             </div>
                                         ` : ''}
@@ -918,9 +1267,100 @@
                 html += '</div>';
                 weatherContentEl.innerHTML = html;
                 
-                // Create chart with hourly data for available period
+                // Create chart with filtered data (same as display - no past days, current hour onwards for today)
+                // Estimate city timezone for chart (reuse the same logic)
+                let chartCityTimezone = 'America/New_York';
+                if (data.location.latitude && data.location.longitude) {
+                    const lat = data.location.latitude;
+                    const lon = data.location.longitude;
+                    const country = (data.location.country || '').toLowerCase();
+                    
+                    if (country.includes('united states') || country.includes('usa') || !country) {
+                        if (lon < -102) {
+                            chartCityTimezone = lon < -115 ? 'America/Los_Angeles' : 'America/Denver';
+                        } else if (lon < -85) {
+                            chartCityTimezone = 'America/Chicago';
+                        } else {
+                            chartCityTimezone = 'America/New_York';
+                        }
+                    } else if (lon >= -10 && lon <= 40 && lat >= 35 && lat <= 70) {
+                        if (lon < 5) chartCityTimezone = 'Europe/London';
+                        else if (lon < 15) chartCityTimezone = 'Europe/Paris';
+                        else if (lon < 30) chartCityTimezone = 'Europe/Moscow';
+                        else chartCityTimezone = 'Europe/London';
+                    } else if (lon >= 70 && lon <= 150 && lat >= 0 && lat <= 60) {
+                        if (lon < 100) chartCityTimezone = 'Asia/Shanghai';
+                        else if (lon < 135) chartCityTimezone = 'Asia/Tokyo';
+                        else chartCityTimezone = 'Asia/Shanghai';
+                    }
+                }
+                
+                // Get current time in city's timezone for chart filtering
+                const nowForChart = new Date();
+                const chartTimeFormatter = new Intl.DateTimeFormat('en-US', {
+                    timeZone: chartCityTimezone,
+                    hour: 'numeric',
+                    hour12: false,
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                });
+                const nowChartParts = chartTimeFormatter.formatToParts(nowForChart);
+                const nowChartYear = parseInt(nowChartParts.find(p => p.type === 'year').value);
+                const nowChartMonth = parseInt(nowChartParts.find(p => p.type === 'month').value) - 1;
+                const nowChartDay = parseInt(nowChartParts.find(p => p.type === 'day').value);
+                const nowChartHour = parseInt(nowChartParts.find(p => p.type === 'hour').value);
+                
+                // Filter chart data same way as display
                 const chartData = data.observations
-                    .sort((a, b) => new Date(a.observed_at) - new Date(b.observed_at));
+                    .filter(obs => {
+                        if (obs.temperature_celsius === null) return false;
+                        
+                        const obsDateStr = obs.observed_at;
+                        const hasTimezone = obsDateStr.includes('+') || obsDateStr.includes('Z') || 
+                                           (obsDateStr.match(/[+-]\d{2}:\d{2}$/) !== null);
+                        
+                        let obsYear, obsMonth, obsDay, obsHour;
+                        if (!hasTimezone) {
+                            const normalized = obsDateStr.replace(' ', 'T');
+                            const parts = normalized.split('T');
+                            if (parts.length >= 2) {
+                                const datePart = parts[0].split('-');
+                                const timePart = parts[1].split(':');
+                                obsYear = parseInt(datePart[0]);
+                                obsMonth = parseInt(datePart[1]) - 1;
+                                obsDay = parseInt(datePart[2]);
+                                obsHour = parseInt(timePart[0]);
+                            } else {
+                                return false;
+                            }
+                        } else {
+                            const obsDate = new Date(obsDateStr);
+                            const obsChartParts = chartTimeFormatter.formatToParts(obsDate);
+                            obsYear = parseInt(obsChartParts.find(p => p.type === 'year').value);
+                            obsMonth = parseInt(obsChartParts.find(p => p.type === 'month').value) - 1;
+                            obsDay = parseInt(obsChartParts.find(p => p.type === 'day').value);
+                            obsHour = parseInt(obsChartParts.find(p => p.type === 'hour').value);
+                        }
+                        
+                        // Check if same day as current time in city timezone
+                        const sameDay = (obsYear === nowChartYear && obsMonth === nowChartMonth && obsDay === nowChartDay);
+                        
+                        // Check if this is a past day
+                        const obsDateObj = new Date(obsYear, obsMonth, obsDay);
+                        const nowDateObj = new Date(nowChartYear, nowChartMonth, nowChartDay);
+                        const isPastDay = obsDateObj < nowDateObj;
+                        
+                        if (isPastDay) {
+                            return false;
+                        } else if (sameDay) {
+                            return obsHour >= nowChartHour;
+                        } else {
+                            return true;
+                        }
+                    })
+                    .sort((a, b) => new Date(a.observed_at) - new Date(b.observed_at))
+                    .slice(0, 72); // Show up to 72 hours (3 days)
                 
                 if (chartData.length > 0) {
                     const chartContainer = document.createElement('div');
@@ -934,9 +1374,32 @@
                         weatherChart.destroy();
                     }
                     
+                    // Format labels as "MMM DD HH AM/PM"
                     const labels = chartData.map(obs => {
                         const date = new Date(obs.observed_at);
-                        return date.toLocaleString();
+                        // Convert to city timezone and format
+                        const cityDateStr = date.toLocaleString('en-US', { 
+                            timeZone: chartCityTimezone,
+                            month: 'short', 
+                            day: 'numeric', 
+                            hour: 'numeric', 
+                            hour12: true 
+                        });
+                        // Parse and reformat to "MMM DD HH AM/PM" format
+                        // Format: "Nov 8, 2:47 PM" -> "Nov 8 2 PM"
+                        const parts = cityDateStr.split(', ');
+                        if (parts.length >= 2) {
+                            const datePart = parts[0]; // "Nov 8"
+                            const timePart = parts[1]; // "2:47 PM"
+                            const hourOnly = timePart.split(':')[0] + ' ' + timePart.split(' ')[1]; // "2 PM"
+                            return `${datePart} ${hourOnly}`;
+                        }
+                        // Fallback: try to parse differently
+                        const match = cityDateStr.match(/(\w{3} \d{1,2}),? (\d{1,2}):\d{2} (AM|PM)/);
+                        if (match) {
+                            return `${match[1]} ${match[2]} ${match[3]}`;
+                        }
+                        return cityDateStr;
                     });
                     
                     const temps = chartData.map(obs => {

@@ -27,17 +27,21 @@ def fetch_weather_from_api(location: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Dictionary with API response data
     """
-    # Calculate time range: last 24 hours + next 7 days forecast
-    end_date = datetime.now(timezone.utc)
-    start_date = end_date - timedelta(days=1)
+    # Calculate time range: yesterday to 7 days ahead
+    # This ensures we get today's data (yesterday includes today's historical data if available)
+    now_utc = datetime.now(timezone.utc)
+    yesterday_utc = (now_utc - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    end_date_utc = now_utc + timedelta(days=7)
     
+    # Use auto timezone detection - Open-Meteo will determine timezone from coordinates
+    # This ensures data is returned in the city's local timezone
     params = {
         "latitude": location["latitude"],
         "longitude": location["longitude"],
         "hourly": "temperature_2m,relativehumidity_2m,precipitation,cloudcover,windspeed_10m",
-        "timezone": "UTC",
-        "start_date": start_date.strftime("%Y-%m-%d"),
-        "end_date": (end_date + timedelta(days=7)).strftime("%Y-%m-%d")
+        "timezone": "auto",  # Auto-detect timezone from coordinates
+        "start_date": yesterday_utc.strftime("%Y-%m-%d"),
+        "end_date": end_date_utc.strftime("%Y-%m-%d")
     }
     
     logger.info(f"Fetching weather for {location['location_name']} from Open-Meteo")

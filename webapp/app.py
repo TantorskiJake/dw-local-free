@@ -106,8 +106,9 @@ def get_location_weather(location_id):
                     cloud_cover_percent
                 FROM core.weather
                 WHERE location_id = %s
-                ORDER BY observed_at DESC
-                LIMIT 168
+                AND observed_at >= CURRENT_DATE - INTERVAL '1 day'
+                ORDER BY observed_at ASC
+                LIMIT 200
             """, (location_id,))
         else:
             # Fallback for databases without new columns
@@ -121,8 +122,9 @@ def get_location_weather(location_id):
                     NULL as cloud_cover_percent
                 FROM core.weather
                 WHERE location_id = %s
-                ORDER BY observed_at DESC
-                LIMIT 168
+                AND observed_at >= CURRENT_DATE - INTERVAL '1 day'
+                ORDER BY observed_at ASC
+                LIMIT 200
             """, (location_id,))
         
         observations = []
@@ -155,16 +157,30 @@ def get_location_weather(location_id):
         
         stats = cursor.fetchone()
         
+        # Get coordinates for timezone estimation (before closing connection)
+        cursor.execute("""
+            SELECT latitude, longitude
+            FROM core.location
+            WHERE location_id = %s
+        """, (location_id,))
+        coords = cursor.fetchone()
+        
+        location_data = {
+            'name': location[0],
+            'city': location[1],
+            'region': location[2],
+            'country': location[3]
+        }
+        
+        if coords:
+            location_data['latitude'] = float(coords[0])
+            location_data['longitude'] = float(coords[1])
+        
         cursor.close()
         conn.close()
         
         return jsonify({
-            'location': {
-                'name': location[0],
-                'city': location[1],
-                'region': location[2],
-                'country': location[3]
-            },
+            'location': location_data,
             'observations': observations,
             'stats': {
                 'count': stats[0],
