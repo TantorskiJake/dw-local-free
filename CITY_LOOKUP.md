@@ -13,7 +13,12 @@ The `lookup` command allows you to input any city name and automatically:
 
 ### Basic Usage
 
+**Make sure your virtual environment is activated:**
+
 ```bash
+# Activate virtual environment (if using one)
+source .venv/bin/activate
+
 # Look up any city
 python src/cli.py lookup "New York"
 
@@ -22,6 +27,11 @@ python src/cli.py lookup "Paris" --country "France"
 
 # Or use the helper script
 ./scripts/dw-cli lookup "Tokyo"
+```
+
+**Or use Python from the venv directly:**
+```bash
+.venv/bin/python src/cli.py lookup "Boston"
 ```
 
 ### Examples
