@@ -228,6 +228,11 @@ def run_weather_data_quality_checkpoint() -> Dict[str, Any]:
     # Run weather checkpoint
     result = run_weather_checkpoint(context)
     
+    if result.get("skipped"):
+        logger.warning("Weather data quality checkpoint SKIPPED (Great Expectations not configured)")
+        logger.info("Pipeline will continue - data quality checks are optional")
+        return result
+    
     if not result["success"]:
         error_msg = f"Weather data quality checkpoint FAILED: {result.get('statistics', {})}"
         logger.error(error_msg)
@@ -260,6 +265,11 @@ def run_wikipedia_data_quality_checkpoint() -> Dict[str, Any]:
     
     # Run Wikipedia checkpoint
     result = run_wikipedia_checkpoint(context)
+    
+    if result.get("skipped"):
+        logger.warning("Wikipedia data quality checkpoint SKIPPED (Great Expectations not configured)")
+        logger.info("Pipeline will continue - data quality checks are optional")
+        return result
     
     if not result["success"]:
         error_msg = f"Wikipedia data quality checkpoint FAILED: {result.get('statistics', {})}"
