@@ -128,59 +128,55 @@
             font-size: 1.8em;
         }
         
-        .weather-days {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 10px;
+        .weather-hours {
+            max-height: 400px;
+            overflow-y: auto;
             margin-bottom: 20px;
         }
         
-        @media (max-width: 968px) {
-            .weather-days {
-                grid-template-columns: repeat(4, 1fr);
-            }
-        }
-        
-        @media (max-width: 600px) {
-            .weather-days {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-        
-        .weather-day {
+        .weather-hour {
             background: #f8f9fa;
             padding: 15px;
             border-radius: 5px;
-            text-align: center;
+            margin-bottom: 10px;
+            display: grid;
+            grid-template-columns: 120px 1fr 1fr 1fr;
+            gap: 15px;
+            align-items: center;
         }
         
-        .weather-day.today {
+        .weather-hour.today {
             background: #e7f3ff;
-            border: 2px solid #667eea;
+            border-left: 4px solid #667eea;
         }
         
-        .day-label {
+        .hour-time {
             font-weight: bold;
             color: #333;
-            margin-bottom: 10px;
             font-size: 0.9em;
         }
         
-        .day-label.today {
+        .hour-time.today {
             color: #667eea;
         }
         
-        .temp {
-            font-size: 1.5em;
+        .hour-temp {
+            font-size: 1.3em;
             font-weight: bold;
             color: #667eea;
-            margin: 10px 0;
         }
         
-        .weather-detail {
-            font-size: 0.85em;
+        .hour-details {
+            display: flex;
+            gap: 15px;
+            font-size: 0.9em;
             color: #666;
-            margin: 5px 0;
+        }
+        
+        .hour-detail {
+            display: flex;
+            align-items: center;
+            gap: 5px;
         }
         
         .chart-container {
@@ -258,7 +254,7 @@
         
         <div class="content" id="content" style="display: none;">
             <div class="card">
-                <h2>🌤️ 7-Day Weather Forecast</h2>
+                <h2>🌤️ Hourly Weather Forecast</h2>
                 <div id="weatherContent">
                     <div class="loading">Loading weather data...</div>
                 </div>
@@ -361,15 +357,16 @@
                     return;
                 }
                 
+                // Get today's date in UTC (to match API timezone)
                 const now = new Date();
-                // Get today at midnight in local timezone
-                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+                const todayKey = todayUTC.toISOString().split('T')[0];
                 
                 // Group observations by day (using UTC date to match API data)
                 const dailyData = {};
                 data.observations.forEach(obs => {
                     const obsDate = new Date(obs.observed_at);
-                    // Use UTC date for grouping to match API timezone
+                    // Use UTC date for grouping to match API data
                     const dayKey = obsDate.toISOString().split('T')[0];
                     
                     if (!dailyData[dayKey]) {
@@ -392,91 +389,73 @@
                     }
                 });
                 
-                // Get all available days and sort them
-                const availableDays = Object.keys(dailyData).sort();
+                // Get current time to identify "now"
+                const now = new Date();
+                const nowKey = now.toISOString();
                 
-                if (availableDays.length === 0) {
-                    weatherContentEl.innerHTML = '<div class="error">No weather data available</div>';
-                    return;
-                }
+                // Sort observations by time and get the next 72 hours (3 days) of hourly data
+                const sortedObservations = data.observations
+                    .filter(obs => {
+                        const obsDate = new Date(obs.observed_at);
+                        // Show data from 3 days ago to 3 days ahead (7 days total)
+                        const daysDiff = (obsDate - now) / (1000 * 60 * 60 * 24);
+                        return daysDiff >= -3 && daysDiff <= 3;
+                    })
+                    .sort((a, b) => new Date(a.observed_at) - new Date(b.observed_at));
                 
-                // Find today's date key (UTC)
-                const todayKey = today.toISOString().split('T')[0];
-                
-                // Find the index of today in available days, or use the first day if today isn't available
-                let todayIndex = availableDays.indexOf(todayKey);
-                if (todayIndex === -1) {
-                    // If today isn't in the data, find the closest day
-                    todayIndex = availableDays.findIndex(day => day >= todayKey);
-                    if (todayIndex === -1) {
-                        todayIndex = availableDays.length - 1; // Use last available day
-                    }
-                }
-                
-                // Get 7 days: 3 before today, today, 3 after today
-                // But adjust if we don't have enough days
-                const days = [];
-                const startIndex = Math.max(0, todayIndex - 3);
-                const endIndex = Math.min(availableDays.length - 1, todayIndex + 3);
-                
-                for (let i = startIndex; i <= endIndex && days.length < 7; i++) {
-                    const dayKey = availableDays[i];
-                    const dayData = dailyData[dayKey];
-                    const date = new Date(dayKey + 'T00:00:00Z');
-                    
-                    const avgTemp = dayData.temps.length > 0 
-                        ? (dayData.temps.reduce((a, b) => a + b, 0) / dayData.temps.length).toFixed(1)
-                        : null;
-                    const avgHumidity = dayData.humidities.length > 0
-                        ? (dayData.humidities.reduce((a, b) => a + b, 0) / dayData.humidities.length).toFixed(0)
-                        : null;
-                    const avgWind = dayData.windSpeeds.length > 0
-                        ? (dayData.windSpeeds.reduce((a, b) => a + b, 0) / dayData.windSpeeds.length).toFixed(1)
-                        : null;
-                    
-                    // Check if this is today
+                // Group by day for organization
+                const hoursByDay = {};
+                sortedObservations.forEach(obs => {
+                    const obsDate = new Date(obs.observed_at);
+                    const dayKey = obsDate.toISOString().split('T')[0];
                     const isToday = dayKey === todayKey;
                     
-                    days.push({
-                        date: date,
-                        dayKey: dayKey,
-                        isToday: isToday,
-                        dayName: isToday ? 'Today' : date.toLocaleDateString('en-US', { weekday: 'short' }),
-                        avgTemp: avgTemp,
-                        avgHumidity: avgHumidity,
-                        avgWind: avgWind
+                    if (!hoursByDay[dayKey]) {
+                        hoursByDay[dayKey] = {
+                            dayName: isToday ? 'Today' : obsDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }),
+                            isToday: isToday,
+                            hours: []
+                        };
+                    }
+                    
+                    const timeStr = obsDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                    const isNow = Math.abs(obsDate - now) < 60 * 60 * 1000; // Within 1 hour of now
+                    
+                    hoursByDay[dayKey].hours.push({
+                        time: timeStr,
+                        datetime: obsDate,
+                        isNow: isNow,
+                        temp: obs.temperature_celsius,
+                        humidity: obs.humidity_percent,
+                        wind: obs.wind_speed_mps
                     });
-                }
+                });
                 
-                // If we have less than 7 days, pad with empty days at the beginning
-                while (days.length < 7 && startIndex > 0) {
-                    const date = new Date(availableDays[startIndex - 1] + 'T00:00:00Z');
-                    days.unshift({
-                        date: date,
-                        dayKey: availableDays[startIndex - 1],
-                        isToday: false,
-                        dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
-                        avgTemp: null,
-                        avgHumidity: null,
-                        avgWind: null
-                    });
-                }
+                // Render hourly forecast
+                const daysArray = Object.keys(hoursByDay).sort();
+                let html = '<div class="weather-hours">';
                 
-                // Render weather days
-                weatherContentEl.innerHTML = `
-                    <div class="weather-days">
-                        ${days.map(day => `
-                            <div class="weather-day ${day.isToday ? 'today' : ''}">
-                                <div class="day-label ${day.isToday ? 'today' : ''}">
-                                    ${day.isToday ? 'Today' : day.dayName}
+                daysArray.forEach(dayKey => {
+                    const dayData = hoursByDay[dayKey];
+                    html += `<div style="margin-bottom: 20px;">
+                        <h3 style="color: #667eea; margin-bottom: 10px; font-size: 1.1em;">${dayData.dayName}</h3>
+                        ${dayData.hours.map(hour => `
+                            <div class="weather-hour ${hour.isNow || dayData.isToday ? 'today' : ''}">
+                                <div class="hour-time ${hour.isNow || dayData.isToday ? 'today' : ''}">
+                                    ${hour.isNow ? '🕐 Now' : hour.time}
                                 </div>
-                                <div class="temp">${day.avgTemp ? day.avgTemp + '°C' : 'N/A'}</div>
-                                ${day.avgHumidity ? `<div class="weather-detail">💧 ${day.avgHumidity}%</div>` : ''}
-                                ${day.avgWind ? `<div class="weather-detail">💨 ${day.avgWind} m/s</div>` : ''}
+                                <div class="hour-temp">${hour.temp !== null ? hour.temp.toFixed(1) + '°C' : 'N/A'}</div>
+                                <div class="hour-details">
+                                    ${hour.humidity !== null ? `<div class="hour-detail">💧 ${hour.humidity.toFixed(0)}%</div>` : ''}
+                                    ${hour.wind !== null ? `<div class="hour-detail">💨 ${hour.wind.toFixed(1)} m/s</div>` : ''}
+                                </div>
                             </div>
                         `).join('')}
-                    </div>
-                `;
+                    </div>`;
+                });
+                
+                html += '</div>';
+                weatherContentEl.innerHTML = html;
                 
                 // Create chart with hourly data for available period
                 const chartData = data.observations
