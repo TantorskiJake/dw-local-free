@@ -512,10 +512,10 @@
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <div>
                     <h1>🌍 City Weather & Wikipedia</h1>
-                    <p class="subtitle">Search for any city to see 7-day weather forecast and Wikipedia article</p>
+                    <p class="subtitle">Search for any city to see weather forecast and Wikipedia article</p>
                 </div>
                 <div class="controls">
-                    <button class="control-button" id="unitToggle" onclick="toggleUnitSystem()">Imperial / Metric</button>
+                    <button class="control-button" id="unitToggle" onclick="toggleUnitSystem()">🇺🇸 Imperial</button>
                     <button class="control-button" id="darkModeToggle" onclick="toggleDarkMode()">🌙 Dark</button>
                 </div>
             </div>
@@ -559,6 +559,8 @@
         let weatherChart = null;
         let useImperial = false;
         let darkMode = false;
+        let currentWeatherData = null; // Store current weather data for unit conversion
+        let currentLocationId = null; // Store current location ID
         
         // Unit conversion functions
         function celsiusToFahrenheit(celsius) {
@@ -624,20 +626,19 @@
             useImperial = !useImperial;
             const button = document.getElementById('unitToggle');
             if (useImperial) {
-                button.textContent = 'Metric / Imperial';
+                // Now using Imperial, so button should say "Metric" (click to switch to metric)
+                button.textContent = '🇬🇧 Metric';
                 button.classList.add('active');
             } else {
-                button.textContent = 'Imperial / Metric';
+                // Now using Metric, so button should say "Imperial" (click to switch to imperial)
+                button.textContent = '🇺🇸 Imperial';
                 button.classList.remove('active');
             }
             localStorage.setItem('useImperial', useImperial);
-            // Refresh weather display if data is already loaded
-            const contentEl = document.getElementById('content');
-            if (contentEl && contentEl.style.display !== 'none') {
-                const cityInput = document.getElementById('cityInput');
-                if (cityInput && cityInput.dataset.lastLocationId) {
-                    loadWeather(parseInt(cityInput.dataset.lastLocationId));
-                }
+            
+            // Immediately refresh weather display if data is already loaded
+            if (currentLocationId) {
+                loadWeather(currentLocationId);
             }
         }
         
@@ -655,8 +656,12 @@
             if (savedUseImperial === 'true') {
                 useImperial = true;
                 const button = document.getElementById('unitToggle');
-                button.textContent = 'Metric / Imperial';
+                button.textContent = '🇬🇧 Metric';
                 button.classList.add('active');
+            } else {
+                // Default to metric, button should say "Imperial" (click to switch to imperial)
+                const button = document.getElementById('unitToggle');
+                button.textContent = '🇺🇸 Imperial';
             }
         }
         
@@ -824,6 +829,7 @@
                 
                 // Store location ID for temperature unit refresh
                 cityInput.dataset.lastLocationId = data.location.id;
+                currentLocationId = data.location.id;
                 
                 // Load weather and Wikipedia
                 await loadWeather(data.location.id);
@@ -912,9 +918,15 @@
         async function loadWeather(locationId) {
             const weatherContentEl = document.getElementById('weatherContent');
             
+            // Store location ID for unit toggle
+            currentLocationId = locationId;
+            
             try {
                 const response = await fetch(`/api/location/${locationId}/weather`);
                 const data = await response.json();
+                
+                // Store weather data for unit conversion
+                currentWeatherData = data;
                 
                 if (data.error || !data.observations || data.observations.length === 0) {
                     weatherContentEl.innerHTML = '<div class="error">No weather data available</div>';

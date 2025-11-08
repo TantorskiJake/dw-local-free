@@ -69,20 +69,20 @@ Both deployments support:
 
 **Option 1: Using the deployment script**
 ```bash
-python prefect/create_deployments.py
+python workflows/create_deployments.py
 ```
 
 **Option 2: Using Prefect CLI**
 ```bash
 # Create weather deployment
-prefect deployment build prefect/daily_pipeline.py:daily_pipeline \
+prefect deployment build workflows/daily_pipeline.py:daily_pipeline \
     -n weather-schedule \
     --schedule "30 * * * *" \
     --timezone UTC \
     --tag schedule=weather
 
 # Create Wikipedia deployment
-prefect deployment build prefect/daily_pipeline.py:daily_pipeline \
+prefect deployment build workflows/daily_pipeline.py:daily_pipeline \
     -n wikipedia-schedule \
     --schedule "0 1,13 * * *" \
     --timezone UTC \
@@ -97,12 +97,12 @@ prefect deployment apply daily_pipeline-deployment.yaml
 To enable scheduled runs and manual execution:
 
 ```bash
-python prefect/serve_deployments.py
+python workflows/serve_deployments.py
 ```
 
 Or using Prefect serve:
 ```bash
-prefect serve prefect/serve_deployments.py
+prefect serve workflows/serve_deployments.py
 ```
 
 ### Manual "Run Now"
@@ -126,7 +126,7 @@ prefect deployment run daily_pipeline/wikipedia-schedule
 
 For testing without deployments:
 ```bash
-python -m prefect.daily_pipeline
+python3 -m workflows.daily_pipeline
 ```
 
 ## Task Configuration

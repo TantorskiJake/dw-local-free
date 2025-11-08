@@ -120,10 +120,10 @@ docker-compose logs postgres | grep -i error
 If running flows directly (not via Prefect server):
 ```bash
 # Logs are printed to stdout/stderr
-python3 -m prefect.daily_pipeline
+python3 -m workflows.daily_pipeline
 
 # Redirect to file
-python3 -m prefect.daily_pipeline > pipeline.log 2>&1
+python3 -m workflows.daily_pipeline > pipeline.log 2>&1
 ```
 
 ### Rerunning a Failed Flow
@@ -154,7 +154,7 @@ prefect flow-run rerun $(prefect flow-run ls --state Failed --limit 1 -o json | 
 
 ```bash
 # Run flow directly
-python3 -m prefect.daily_pipeline
+python3 -m workflows.daily_pipeline
 
 # Or trigger deployment
 prefect deployment run daily_pipeline/weather-schedule
@@ -443,7 +443,7 @@ Create a custom script or modify the flow to:
 ```python
 # scripts/backfill_date_range.py
 from prefect import flow
-from prefect.daily_pipeline import fetch_raw_weather, transform_weather_to_fact
+from workflows.daily_pipeline import fetch_raw_weather, transform_weather_to_fact
 from datetime import datetime, timedelta
 
 @flow
@@ -679,7 +679,7 @@ prefect deployment run daily_pipeline/weather-schedule
 prefect deployment run daily_pipeline/wikipedia-schedule
 
 # Or run directly
-python3 -m prefect.daily_pipeline
+python3 -m workflows.daily_pipeline
 ```
 
 **6. Verify Data Collection**
@@ -714,7 +714,7 @@ ORDER BY observation_date DESC;
 
 **7. Update Flow Configuration (If Hardcoded)**
 
-If locations are hardcoded in the flow, update `prefect/daily_pipeline.py`:
+If locations are hardcoded in the flow, update `workflows/daily_pipeline.py`:
 
 ```python
 # Change from hardcoded list to query from database
@@ -774,4 +774,5 @@ prefect flow-run ls --limit 5
 ## Version History
 
 - **2024-11-08**: Initial runbook creation
+- **2024-12-19**: Updated commands and location counts for accuracy
 

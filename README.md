@@ -139,7 +139,7 @@ Follow this script to demonstrate the end-to-end pipeline execution.
    SELECT COUNT(*) as wiki_count FROM raw.wikipedia_pages;
    ```
 
-**Expected:** 2 locations, 4 Wikipedia pages, 0 rows in raw tables
+**Expected:** 10 locations, 4 Wikipedia pages, 0 rows in raw tables
 
 ---
 
@@ -179,7 +179,7 @@ python3 -m workflows.daily_pipeline
 2. Click on the latest `daily_pipeline` run
 3. Watch tasks execute in order:
    - ✅ `ensure_location_dimension` - Updates location dimension
-   - ✅ `fetch_raw_weather` (2 parallel tasks) - Fetches weather for Boston and St Louis
+   - ✅ `fetch_raw_weather` (10 parallel tasks) - Fetches weather for all locations
    - ✅ `transform_weather_to_fact` - Transforms weather data
    - ✅ `fetch_raw_wikipedia_page` (4 parallel tasks) - Fetches Wikipedia pages
    - ✅ `upsert_wikipedia_dimension_and_facts` - Updates dimension and facts
@@ -208,7 +208,7 @@ ORDER BY ingested_at DESC;
 ```
 
 **Expected Results:**
-- 2 rows (one per location: Boston, St Louis)
+- 10 rows (one per location)
 - Recent `ingested_at` timestamps (within last few minutes)
 - `has_payload` = "array" (JSONB contains hourly data)
 - `first_timestamp` shows first observation time
@@ -279,7 +279,7 @@ ORDER BY l.location_name;
 ```
 
 **Expected Results:**
-- 2 rows (Boston and St Louis)
+- 10 rows (one per location)
 - `observation_count` >= 1 (ideally 24+ for full day of hourly data)
 - `first_observation` and `last_observation` show today's timestamps
 - Temperature, humidity, and wind speed averages are reasonable
@@ -392,7 +392,7 @@ ORDER BY location_name;
 ```
 
 **Expected Results:**
-- 2 rows (Boston and St Louis)
+- 10 rows (one per location)
 - `observation_date` = today's date
 - `observation_count` >= 1
 - Temperature, humidity metrics are populated
@@ -423,7 +423,7 @@ ORDER BY page_title;
 
 **Query 9: Compare locations side-by-side**
 ```sql
--- Compare weather conditions between Boston and St Louis today
+-- Compare weather conditions across all locations today
 SELECT 
     location_name,
     observation_count,
@@ -437,8 +437,8 @@ ORDER BY avg_temperature_celsius DESC;
 ```
 
 **Expected Results:**
-- Side-by-side comparison of both locations
-- Shows which location is warmer/cooler
+- Side-by-side comparison of all locations
+- Shows which locations are warmer/cooler
 - Weather conditions for each location
 
 ---
@@ -502,7 +502,7 @@ WHERE revision_date = CURRENT_DATE;
 Here are some English descriptions of useful queries you can try in Adminer:
 
 ### Query A: "Show me the latest weather observations for each location"
-**What it does:** Returns the most recent weather observation for Boston and St Louis, showing temperature, humidity, and wind conditions.
+**What it does:** Returns the most recent weather observation for all locations, showing temperature, humidity, and wind conditions.
 
 **SQL:**
 ```sql
@@ -539,7 +539,7 @@ ORDER BY revision_count DESC, total_bytes_changed DESC;
 ```
 
 ### Query C: "Show me the temperature range for each location today"
-**What it does:** Compares the minimum and maximum temperatures between Boston and St Louis, showing the temperature spread for the day.
+**What it does:** Compares the minimum and maximum temperatures across all locations, showing the temperature spread for the day.
 
 **SQL:**
 ```sql

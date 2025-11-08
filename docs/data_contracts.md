@@ -257,4 +257,5 @@ To get the content size:
 ## Version History
 
 - **2024-11-08**: Initial data contract definitions
+- **2024-12-19**: Updated documentation for consistency
 

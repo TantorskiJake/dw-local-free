@@ -202,4 +202,5 @@ export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/dw
 ## Version History
 
 - **2024-11-08**: Initial data quality framework with Great Expectations
+- **2024-12-19**: Updated documentation for consistency
 

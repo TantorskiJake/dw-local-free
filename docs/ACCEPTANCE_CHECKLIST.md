@@ -59,7 +59,7 @@ WHERE schemaname = 'mart';
 
 - [ ] **Flow runs successfully**
   ```bash
-  python3 -m prefect.daily_pipeline
+  python3 -m workflows.daily_pipeline
   # OR
   prefect deployment run daily_pipeline/weather-schedule
   ```
@@ -255,7 +255,7 @@ SELECT COUNT(*) as page_count FROM core.wikipedia_page WHERE is_current = true;
 "
 
 # 6. Run flow (if Prefect installed)
-python3 -m prefect.daily_pipeline
+python3 -m workflows.daily_pipeline
 
 # 7. Check Prefect UI
 # Open http://127.0.0.1:4200 and verify flow runs
@@ -304,5 +304,5 @@ See `docs/runbook.md` for detailed troubleshooting procedures.
 ## Version
 
 - **Created**: 2024-11-08
-- **Last Updated**: 2024-11-08
+- **Last Updated**: 2024-12-19
 
