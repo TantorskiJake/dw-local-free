@@ -3,6 +3,7 @@ Transform functions for converting raw data to core fact tables.
 """
 
 import psycopg2
+from psycopg2 import sql
 import json
 import os
 from datetime import datetime, timezone
@@ -26,6 +27,35 @@ def transform_weather_to_fact() -> Dict[str, Any]:
     """
     conn = psycopg2.connect(DATABASE_URL)
     cursor = conn.cursor()
+    
+    # Helper function to ensure partition exists
+    def ensure_partition(cursor, observed_at):
+        """Ensure the partition for the given timestamp exists."""
+        partition_name = f"weather_{observed_at.year}_{observed_at.month:02d}"
+        start_date = observed_at.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if observed_at.month == 12:
+            end_date = start_date.replace(year=observed_at.year + 1, month=1)
+        else:
+            end_date = start_date.replace(month=observed_at.month + 1)
+        
+        # Check if partition exists
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT 1 FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'core' AND c.relname = %s
+            )
+        """, (partition_name,))
+        
+        if not cursor.fetchone()[0]:
+            # Create partition using proper SQL escaping
+            # Use format identifier for table name (safe since we control the format)
+            create_partition_sql = sql.SQL("""
+                CREATE TABLE IF NOT EXISTS core.{partition} PARTITION OF core.weather
+                FOR VALUES FROM (%s) TO (%s)
+            """).format(partition=sql.Identifier(partition_name))
+            cursor.execute(create_partition_sql, (start_date, end_date))
+            logger.info(f"Created partition: {partition_name} for {start_date} to {end_date}")
     
     # Get latest raw payload per location
     cursor.execute("""
@@ -77,6 +107,8 @@ def transform_weather_to_fact() -> Dict[str, Any]:
             
             # Explode arrays into rows
             rows_inserted = 0
+            processed_timestamps = set()  # Track which partitions we've ensured
+            
             for i in range(len(times)):
                 try:
                     # Parse timestamp
@@ -84,6 +116,12 @@ def transform_weather_to_fact() -> Dict[str, Any]:
                     if time_str.endswith("Z"):
                         time_str = time_str.replace("Z", "+00:00")
                     observed_at = datetime.fromisoformat(time_str)
+                    
+                    # Ensure partition exists (only check once per month)
+                    partition_key = (observed_at.year, observed_at.month)
+                    if partition_key not in processed_timestamps:
+                        ensure_partition(cursor, observed_at)
+                        processed_timestamps.add(partition_key)
                     
                     # Get values (handle missing/null)
                     temp = temps[i] if i < len(temps) and temps[i] is not None else None
@@ -126,8 +164,9 @@ def transform_weather_to_fact() -> Dict[str, Any]:
                     
                 except Exception as e:
                     logger.warning(f"Error processing row {i} for {location_name}: {e}")
-                    # Skip this row and continue with next
-                    continue
+                    # Rollback this location's transaction and continue with next location
+                    conn.rollback()
+                    break  # Break out of inner loop, will continue to next location
             
             conn.commit()
             total_rows_inserted += rows_inserted
