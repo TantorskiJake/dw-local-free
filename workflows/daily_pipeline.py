@@ -311,12 +311,33 @@ def refresh_materialized_view(view_name: str) -> Dict[str, Any]:
         conn = psycopg2.connect(database_url)
         cursor = conn.cursor()
         
-        # Use CONCURRENTLY to allow reads during refresh
-        # This requires a unique index on the view (already created in init_warehouse.sql)
-        cursor.execute(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view_name}")
+        # Check if view has a unique index (required for CONCURRENTLY)
+        # If not, use regular refresh
+        schema, name = view_name.split('.')
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT 1 FROM pg_indexes
+                WHERE schemaname = %s
+                AND tablename = %s
+                AND indexdef LIKE '%UNIQUE%'
+            )
+        """, (schema, name))
+        
+        has_unique_index = cursor.fetchone()[0]
+        
+        if has_unique_index:
+            # Use CONCURRENTLY to allow reads during refresh
+            cursor.execute(f"REFRESH MATERIALIZED VIEW CONCURRENTLY {view_name}")
+            method = "CONCURRENTLY"
+        else:
+            # Fall back to regular refresh
+            logger.warning(f"No unique index found on {view_name}, using regular refresh")
+            cursor.execute(f"REFRESH MATERIALIZED VIEW {view_name}")
+            method = "REGULAR"
+        
         conn.commit()
         
-        logger.info(f"Successfully refreshed materialized view: {view_name}")
+        logger.info(f"Successfully refreshed materialized view: {view_name} (method: {method})")
         
         cursor.close()
         conn.close()
@@ -324,11 +345,16 @@ def refresh_materialized_view(view_name: str) -> Dict[str, Any]:
         return {
             "view_name": view_name,
             "status": "success",
-            "method": "CONCURRENTLY"
+            "method": method
         }
     except Exception as e:
         logger.error(f"Failed to refresh materialized view {view_name}: {e}")
-        raise
+        # Don't raise - allow pipeline to continue even if view refresh fails
+        return {
+            "view_name": view_name,
+            "status": "failed",
+            "error": str(e)
+        }
 
 
 # ============================================================================
@@ -451,8 +477,16 @@ def daily_pipeline():
             "mart.daily_weather_aggregates",
             "mart.daily_wikipedia_page_stats"
         ]
-        refresh_results = refresh_materialized_view.map(view_names)
-        logger.info(f"Materialized views refreshed: {len(view_names)} views")
+        try:
+            refresh_results = refresh_materialized_view.map(view_names)
+            # Wait for all refresh tasks to complete
+            refresh_statuses = [r.get("status") for r in refresh_results if isinstance(r, dict)]
+            successful_refreshes = sum(1 for s in refresh_statuses if s == "success")
+            logger.info(f"Materialized views refreshed: {successful_refreshes}/{len(view_names)} views")
+        except Exception as e:
+            logger.warning(f"Materialized view refresh encountered issues: {e}")
+            logger.warning("Pipeline will continue - views can be refreshed manually if needed")
+            refresh_results = []
         
         # Summary
         summary = {
