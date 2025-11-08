@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Warehouse Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            margin: 10px 0;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 1em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        @media (max-width: 968px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        
+        .location-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .location-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .location-item:hover {
+            background: #f5f5f5;
+        }
+        
+        .location-item:last-child {
+            border-bottom: none;
+        }
+        
+        .location-name {
+            font-weight: bold;
+            color: #333;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+        
+        .location-details {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .weather-details {
+            display: none;
+        }
+        
+        .weather-details.active {
+            display: block;
+        }
+        
+        .weather-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .weather-stat {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        
+        .weather-stat-label {
+            color: #666;
+            font-size: 0.85em;
+            margin-bottom: 5px;
+        }
+        
+        .weather-stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .wikipedia-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .wikipedia-item:hover {
+            background: #f5f5f5;
+        }
+        
+        .wikipedia-item:last-child {
+            border-bottom: none;
+        }
+        
+        .wikipedia-title {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .wikipedia-extract {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 10px;
+            line-height: 1.5;
+        }
+        
+        .wikipedia-url {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 0.85em;
+        }
+        
+        .wikipedia-url:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌍 Data Warehouse Dashboard</h1>
+            <p class="subtitle">Explore weather and Wikipedia data</p>
+            <div style="margin-top: 20px; display: flex; gap: 10px; align-items: center;">
+                <input type="text" id="cityInput" placeholder="Enter city name..." 
+                       style="flex: 1; padding: 10px; border: 2px solid #ddd; border-radius: 5px; font-size: 1em;">
+                <input type="text" id="countryInput" placeholder="Country (optional)" 
+                       style="width: 200px; padding: 10px; border: 2px solid #ddd; border-radius: 5px; font-size: 1em;">
+                <button onclick="lookupCity()" 
+                        style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 5px; font-size: 1em; cursor: pointer; font-weight: bold;">
+                    🔍 Lookup City
+                </button>
+            </div>
+            <div id="lookupStatus" style="margin-top: 10px;"></div>
+        </header>
+        
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-label">Locations</div>
+                <div class="stat-value" id="statLocations">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Weather Observations</div>
+                <div class="stat-value" id="statWeather">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Wikipedia Pages</div>
+                <div class="stat-value" id="statWikipedia">-</div>
+            </div>
+        </div>
+        
+        <div class="content-grid">
+            <div class="card">
+                <h2>📍 Locations</h2>
+                <div class="location-list" id="locationList">
+                    <div class="loading">Loading locations...</div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>🌤️ Weather Data</h2>
+                <div id="weatherDetails" class="weather-details">
+                    <div class="loading">Select a location to view weather data</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>📚 Wikipedia Pages</h2>
+            <div id="wikipediaList" class="location-list">
+                <div class="loading">Loading Wikipedia pages...</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Load dashboard stats
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/dashboard/stats');
+                const data = await response.json();
+                
+                document.getElementById('statLocations').textContent = data.locations.toLocaleString();
+                document.getElementById('statWeather').textContent = data.weather_observations.toLocaleString();
+                document.getElementById('statWikipedia').textContent = data.wikipedia_pages.toLocaleString();
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+        
+        // Load locations
+        async function loadLocations() {
+            try {
+                const response = await fetch('/api/locations');
+                const locations = await response.json();
+                
+                const listEl = document.getElementById('locationList');
+                
+                if (locations.error) {
+                    listEl.innerHTML = `<div class="error">Error: ${locations.error}</div>`;
+                    return;
+                }
+                
+                if (locations.length === 0) {
+                    listEl.innerHTML = '<div class="loading">No locations found</div>';
+                    return;
+                }
+                
+                listEl.innerHTML = locations.map(loc => `
+                    <div class="location-item" onclick="loadWeather(${loc.id})">
+                        <div class="location-name">${loc.name}</div>
+                        <div class="location-details">${loc.city}, ${loc.region || ''} ${loc.country || ''}</div>
+                        <div class="location-details" style="font-size: 0.8em; color: #999; margin-top: 5px;">
+                            ${loc.latitude.toFixed(4)}, ${loc.longitude.toFixed(4)}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                document.getElementById('locationList').innerHTML = 
+                    `<div class="error">Error loading locations: ${error.message}</div>`;
+            }
+        }
+        
+        // Load weather for a location
+        let weatherChart = null;
+        async function loadWeather(locationId) {
+            const detailsEl = document.getElementById('weatherDetails');
+            detailsEl.classList.add('active');
+            detailsEl.innerHTML = '<div class="loading">Loading weather data...</div>';
+            
+            try {
+                const response = await fetch(`/api/location/${locationId}/weather`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    detailsEl.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                    return;
+                }
+                
+                const stats = data.stats;
+                const observations = data.observations;
+                
+                detailsEl.innerHTML = `
+                    <h3 style="margin-bottom: 15px; color: #333;">${data.location.name}</h3>
+                    <div class="weather-stats">
+                        <div class="weather-stat">
+                            <div class="weather-stat-label">Average Temperature</div>
+                            <div class="weather-stat-value">${stats.avg_temp ? stats.avg_temp.toFixed(1) + '°C' : 'N/A'}</div>
+                        </div>
+                        <div class="weather-stat">
+                            <div class="weather-stat-label">Temperature Range</div>
+                            <div class="weather-stat-value">${stats.min_temp ? stats.min_temp.toFixed(1) : 'N/A'}° - ${stats.max_temp ? stats.max_temp.toFixed(1) : 'N/A'}°</div>
+                        </div>
+                        <div class="weather-stat">
+                            <div class="weather-stat-label">Average Humidity</div>
+                            <div class="weather-stat-value">${stats.avg_humidity ? stats.avg_humidity.toFixed(1) + '%' : 'N/A'}</div>
+                        </div>
+                        <div class="weather-stat">
+                            <div class="weather-stat-label">Average Wind Speed</div>
+                            <div class="weather-stat-value">${stats.avg_wind ? stats.avg_wind.toFixed(1) + ' m/s' : 'N/A'}</div>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="weatherChart"></canvas>
+                    </div>
+                `;
+                
+                // Create chart
+                const ctx = document.getElementById('weatherChart').getContext('2d');
+                
+                if (weatherChart) {
+                    weatherChart.destroy();
+                }
+                
+                const labels = observations.slice().reverse().map(obs => {
+                    const date = new Date(obs.observed_at);
+                    return date.toLocaleString();
+                });
+                
+                const temps = observations.slice().reverse().map(obs => obs.temperature_celsius);
+                const humidities = observations.slice().reverse().map(obs => obs.humidity_percent);
+                
+                weatherChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Temperature (°C)',
+                                data: temps,
+                                borderColor: 'rgb(102, 126, 234)',
+                                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                yAxisID: 'y',
+                                tension: 0.4
+                            },
+                            {
+                                label: 'Humidity (%)',
+                                data: humidities,
+                                borderColor: 'rgb(118, 75, 162)',
+                                backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                                yAxisID: 'y1',
+                                tension: 0.4
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        scales: {
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                title: {
+                                    display: true,
+                                    text: 'Temperature (°C)'
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                title: {
+                                    display: true,
+                                    text: 'Humidity (%)'
+                                },
+                                grid: {
+                                    drawOnChartArea: false,
+                                },
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                detailsEl.innerHTML = `<div class="error">Error loading weather: ${error.message}</div>`;
+            }
+        }
+        
+        // Load Wikipedia pages
+        async function loadWikipediaPages() {
+            try {
+                const response = await fetch('/api/wikipedia-pages');
+                const pages = await response.json();
+                
+                const listEl = document.getElementById('wikipediaList');
+                
+                if (pages.error) {
+                    listEl.innerHTML = `<div class="error">Error: ${pages.error}</div>`;
+                    return;
+                }
+                
+                if (pages.length === 0) {
+                    listEl.innerHTML = '<div class="loading">No Wikipedia pages found</div>';
+                    return;
+                }
+                
+                // Load details for each page
+                const pagesWithDetails = await Promise.all(
+                    pages.map(async (page) => {
+                        try {
+                            const detailResponse = await fetch(`/api/wikipedia/${page.page_id}`);
+                            const details = await detailResponse.json();
+                            return { ...page, details };
+                        } catch (error) {
+                            return { ...page, details: null };
+                        }
+                    })
+                );
+                
+                listEl.innerHTML = pagesWithDetails.map(page => {
+                    const summary = page.details?.summary;
+                    return `
+                        <div class="wikipedia-item">
+                            <div class="wikipedia-title">${page.title}</div>
+                            ${summary ? `
+                                <div class="wikipedia-extract">${summary.extract ? summary.extract.substring(0, 200) + '...' : 'No summary available'}</div>
+                                ${summary.url ? `<a href="${summary.url}" target="_blank" class="wikipedia-url">View on Wikipedia →</a>` : ''}
+                            ` : '<div class="wikipedia-extract">Loading details...</div>'}
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                document.getElementById('wikipediaList').innerHTML = 
+                    `<div class="error">Error loading Wikipedia pages: ${error.message}</div>`;
+            }
+        }
+        
+        // Lookup city function
+        async function lookupCity() {
+            const cityInput = document.getElementById('cityInput');
+            const countryInput = document.getElementById('countryInput');
+            const statusEl = document.getElementById('lookupStatus');
+            
+            const cityName = cityInput.value.trim();
+            if (!cityName) {
+                statusEl.innerHTML = '<div class="error">Please enter a city name</div>';
+                return;
+            }
+            
+            statusEl.innerHTML = '<div class="loading">Looking up city and fetching data...</div>';
+            
+            try {
+                const response = await fetch('/api/lookup-city', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        city_name: cityName,
+                        country: countryInput.value.trim() || null
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    statusEl.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                    return;
+                }
+                
+                statusEl.innerHTML = `
+                    <div style="background: #d4edda; color: #155724; padding: 15px; border-radius: 5px;">
+                        ✅ Successfully added ${data.location.name}! 
+                        ${data.weather_rows_inserted > 0 ? `${data.weather_rows_inserted} weather observations. ` : ''}
+                        ${data.wikipedia_success ? 'Wikipedia data fetched. ' : ''}
+                        <a href="#" onclick="loadWeather(${data.location.id}); return false;" style="color: #667eea; text-decoration: underline;">View weather data →</a>
+                    </div>
+                `;
+                
+                // Clear inputs
+                cityInput.value = '';
+                countryInput.value = '';
+                
+                // Reload data
+                loadStats();
+                loadLocations();
+                loadWikipediaPages();
+                
+                // Auto-hide success message after 5 seconds
+                setTimeout(() => {
+                    statusEl.innerHTML = '';
+                }, 5000);
+                
+            } catch (error) {
+                statusEl.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+        
+        // Allow Enter key to trigger lookup
+        document.getElementById('cityInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                lookupCity();
+            }
+        });
+        
+        document.getElementById('countryInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                lookupCity();
+            }
+        });
+        
+        // Initialize
+        loadStats();
+        loadLocations();
+        loadWikipediaPages();
+        
+        // Refresh every 30 seconds
+        setInterval(() => {
+            loadStats();
+        }, 30000);
+    </script>
+</body>
+</html>
+

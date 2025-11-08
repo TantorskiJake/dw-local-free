@@ -75,7 +75,20 @@ python src/cli.py add-page --title "San Francisco" --run
 python src/cli.py --help
 ```
 
-### 6. Generate dbt Documentation (Optional)
+### 6. Start Web Interface
+
+```bash
+# Start the Flask web dashboard
+./scripts/start-webapp.sh
+
+# Or manually:
+cd webapp
+python app.py
+```
+
+The web dashboard will be available at http://localhost:5000
+
+### 7. Generate dbt Documentation (Optional)
 
 ```bash
 cd dbt_project

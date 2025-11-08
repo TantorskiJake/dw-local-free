@@ -35,3 +35,6 @@ dbt-postgres>=1.7.0
 # CLI
 click>=8.1.7
 
+# Web Interface
+flask>=3.0.0
+
