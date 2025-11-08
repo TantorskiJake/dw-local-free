@@ -86,7 +86,9 @@ cd webapp
 python app.py
 ```
 
-The web dashboard will be available at http://localhost:5000
+The web dashboard will be available at http://localhost:5001
+
+(Note: Port 5001 is used to avoid conflicts with macOS AirPlay Receiver on port 5000)
 
 ### 7. Generate dbt Documentation (Optional)
 
