@@ -25,13 +25,14 @@ def index():
 
 @app.route('/api/locations')
 def get_locations():
-    """Get all locations."""
+    """Get all locations, grouped by name to show unique cities."""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
+        # Get all locations, but group by location_name to show unique cities
         cursor.execute("""
-            SELECT 
+            SELECT DISTINCT ON (location_name)
                 location_id,
                 location_name,
                 city,
@@ -41,7 +42,7 @@ def get_locations():
                 longitude,
                 created_at
             FROM core.location
-            ORDER BY location_name
+            ORDER BY location_name, created_at DESC
         """)
         
         locations = []
@@ -204,7 +205,7 @@ def get_wikipedia_page_details(page_id):
         if not page:
             return jsonify({'error': 'Page not found'}), 404
         
-        # Get summary from raw table
+        # Get summary from raw table - try exact match first, then case-insensitive
         cursor.execute("""
             SELECT 
                 payload->>'title' as title,
@@ -214,7 +215,7 @@ def get_wikipedia_page_details(page_id):
                 payload->>'description' as description,
                 ingested_at
             FROM raw.wikipedia_pages
-            WHERE page_title = %s
+            WHERE LOWER(page_title) = LOWER(%s)
             ORDER BY ingested_at DESC
             LIMIT 1
         """, (page[0],))
