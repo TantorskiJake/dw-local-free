@@ -43,7 +43,7 @@ pip install -r requirements.txt
 ### Option A: Direct Python Execution (Simplest)
 
 ```bash
-python3 -m prefect.daily_pipeline
+python3 -m workflows.daily_pipeline
 ```
 
 ### Option B: Via Prefect CLI (Recommended for monitoring)
@@ -56,7 +56,7 @@ prefect server start
 prefect deployment run daily_pipeline/weather-schedule
 
 # Or run directly
-python3 -m prefect.daily_pipeline
+python3 -m workflows.daily_pipeline
 ```
 
 ## Step 5: Monitor Progress
@@ -193,14 +193,21 @@ export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/dw"
 
 Once the pipeline runs successfully:
 
-1. **Enable Scheduled Runs:**
+1. **Start the Web Interface:**
    ```bash
-   python prefect/create_deployments.py
-   python prefect/serve_deployments.py
+   ./scripts/start-webapp.sh
+   # Then open http://localhost:5001 in your browser
    ```
 
-2. **Add More Locations:**
+2. **Enable Scheduled Runs:**
    ```bash
+   python workflows/create_deployments.py
+   python workflows/serve_deployments.py
+   ```
+
+3. **Add More Locations:**
+   ```bash
+   # Using CLI
    python src/cli.py add-location \
        --name "Portland" \
        --lat 45.5152 \
@@ -208,9 +215,11 @@ Once the pipeline runs successfully:
        --city "Portland" \
        --region "Oregon" \
        --run
+   
+   # Or use the web interface to search for any city
    ```
 
-3. **View dbt Documentation:**
+4. **View dbt Documentation:**
    ```bash
    cd dbt_project
    dbt docs generate

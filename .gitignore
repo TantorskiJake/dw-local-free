@@ -26,3 +26,14 @@ Thumbs.db
 # Great Expectations
 great_expectations/
 
+# Flask
+*.pyc
+webapp/__pycache__/
+webapp/instance/
+webapp/.webassets-cache
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+

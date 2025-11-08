@@ -12,7 +12,8 @@ This project provides a local, free data warehouse solution using modern data en
 ## Project Structure
 
 - `src/` - Source code, SQL scripts, data quality checks, and CLI tool
-- `prefect/` - Prefect workflows and orchestration
+- `workflows/` - Prefect workflows and orchestration
+- `webapp/` - Flask web application for city weather and Wikipedia lookup
 - `docs/` - Documentation and architecture diagrams
 - `tests/` - Test files
 - `dbt_project/` - dbt Core models for documentation and lineage
@@ -75,18 +76,24 @@ python src/cli.py add-page --title "San Francisco" --run
 python src/cli.py --help
 ```
 
-### 6. Start Web Interface
+### 6. Start Web Interface (Recommended)
 
 ```bash
 # Start the Flask web dashboard
 ./scripts/start-webapp.sh
 
 # Or manually:
-cd webapp
-python app.py
+cd webapp && python app.py
 ```
 
-The web dashboard will be available at http://localhost:5001
+The web dashboard will be available at **http://localhost:5001**
+
+**Features:**
+- Search any city to get 7-day weather forecast (3 past days, today, 3 future days)
+- View Wikipedia article for the city
+- Dark mode toggle
+- Temperature unit conversion (Celsius/Fahrenheit)
+- Interactive weather charts
 
 (Note: Port 5001 is used to avoid conflicts with macOS AirPlay Receiver on port 5000)
 
@@ -159,7 +166,7 @@ prefect deployment run daily_pipeline/wikipedia-schedule
 **Option C: Direct Python**
 
 ```bash
-python3 -m prefect.daily_pipeline
+python3 -m workflows.daily_pipeline
 ```
 
 ---
@@ -579,17 +586,21 @@ ORDER BY temperature_range DESC;
 
 ## Next Steps
 
+- **Use the Web Interface**: Start the webapp to search cities and view weather/Wikipedia data
 - Review detailed documentation in `docs/` directory
-- Customize schedules in `prefect/deployments.py`
+- Customize schedules in `workflows/deployments.py`
 - Adjust data quality expectations in `src/data_quality.py`
-- Add more locations or Wikipedia pages in `src/seed_data.yaml`
+- Add more locations or Wikipedia pages using the CLI or `src/seed_data.yaml`
 
 ## Documentation
 
+- **[Quick Start Guide](QUICK_START.md)** - Get up and running quickly
+- **[CLI Usage](docs/CLI_USAGE.md)** - Command-line tool documentation
 - **[Operations Runbook](docs/runbook.md)** - Day-to-day operations, failure modes, and recovery procedures
 - **[Performance Guide](docs/performance.md)** - Partitioning, concurrency, and scaling strategies
 - **[Architecture Diagram](docs/architecture.html)** - Visual overview of the system architecture
 - **[Data Contracts](docs/data_contracts.md)** - API response structures and field definitions
+- **[Weather Accuracy](docs/WEATHER_ACCURACY.md)** - Weather data verification and accuracy information
 - **[Acceptance Checklist](docs/ACCEPTANCE_CHECKLIST.md)** - Verification checklist for all components
 
 ---
