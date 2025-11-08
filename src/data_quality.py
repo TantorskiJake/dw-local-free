@@ -7,14 +7,8 @@ This module defines expectation suites and checkpoints for data quality validati
 import os
 from typing import Dict, Any, Optional
 import logging
-from great_expectations.core.batch import RuntimeBatchRequest
-from great_expectations.data_context import BaseDataContext
-from great_expectations.data_context.types.base import (
-    DataContextConfig,
-    FilesystemStoreBackendDefaults,
-)
-from great_expectations.checkpoint import SimpleCheckpoint
 import great_expectations as gx
+from great_expectations.core.batch import RuntimeBatchRequest
 
 logger = logging.getLogger(__name__)
 
@@ -22,36 +16,30 @@ logger = logging.getLogger(__name__)
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/dw")
 
 
-def get_data_context() -> BaseDataContext:
+def get_data_context():
     """Initialize and return Great Expectations data context."""
-    # Create data context configuration
-    data_context_config = DataContextConfig(
-        config_version=3.0,
-        datasources={
-            "postgres_datasource": {
-                "class_name": "Datasource",
-                "execution_engine": {
-                    "class_name": "SqlAlchemyExecutionEngine",
-                    "connection_string": DATABASE_URL,
-                },
-                "data_connectors": {
-                    "default_runtime_data_connector": {
-                        "class_name": "RuntimeDataConnector",
-                        "batch_identifiers": ["default_identifier_name"],
-                    }
-                },
-            }
-        },
-        store_backend_defaults=FilesystemStoreBackendDefaults(
-            root_directory="./great_expectations"
-        ),
-    )
+    # Use modern Great Expectations API
+    # Try to get existing context, or create a new one
+    try:
+        context = gx.get_context()
+    except Exception:
+        # Create new file-based context
+        context = gx.get_context(mode="file")
     
-    context = BaseDataContext(project_config=data_context_config)
+    # Add datasource if it doesn't exist
+    try:
+        datasource = context.get_datasource("postgres_datasource")
+    except Exception:
+        # Create datasource
+        datasource = context.sources.add_sql(
+            name="postgres_datasource",
+            connection_string=DATABASE_URL
+        )
+    
     return context
 
 
-def create_weather_expectation_suite(context: BaseDataContext) -> None:
+def create_weather_expectation_suite(context) -> None:
     """Create expectation suite for weather fact table."""
     suite_name = "weather_fact_suite"
     
@@ -124,7 +112,7 @@ def create_weather_expectation_suite(context: BaseDataContext) -> None:
     logger.info(f"Saved expectation suite: {suite_name}")
 
 
-def create_wikipedia_expectation_suite(context: BaseDataContext) -> None:
+def create_wikipedia_expectation_suite(context) -> None:
     """Create expectation suite for Wikipedia revision fact table."""
     suite_name = "wikipedia_revision_suite"
     
@@ -163,7 +151,7 @@ def create_wikipedia_expectation_suite(context: BaseDataContext) -> None:
     logger.info(f"Saved expectation suite: {suite_name}")
 
 
-def run_weather_checkpoint(context: BaseDataContext, batch_query: Optional[str] = None) -> Dict[str, Any]:
+def run_weather_checkpoint(context, batch_query: Optional[str] = None) -> Dict[str, Any]:
     """
     Run weather fact data quality checkpoint.
     
@@ -181,40 +169,36 @@ def run_weather_checkpoint(context: BaseDataContext, batch_query: Optional[str] 
     if batch_query is None:
         batch_query = "SELECT * FROM core.weather ORDER BY created_at DESC LIMIT 1000"
     
-    # Create batch request
-    batch_request = RuntimeBatchRequest(
-        datasource_name="postgres_datasource",
-        data_connector_name="default_runtime_data_connector",
-        data_asset_name="weather_fact",
-        runtime_parameters={"query": batch_query},
-        batch_identifiers={"default_identifier_name": "weather_batch"},
+    # Get datasource
+    datasource = context.get_datasource("postgres_datasource")
+    
+    # Create data asset and batch
+    data_asset = datasource.add_query_asset(
+        name="weather_fact",
+        query=batch_query
     )
     
-    # Create checkpoint
-    checkpoint_name = "weather_fact_checkpoint"
-    checkpoint = SimpleCheckpoint(
-        name=checkpoint_name,
-        data_context=context,
-        validations=[
-            {
-                "batch_request": batch_request,
-                "expectation_suite_name": suite_name,
-            }
-        ],
+    # Get expectation suite
+    suite = context.get_expectation_suite(suite_name)
+    
+    # Create validator
+    validator = context.get_validator(
+        batch_request=data_asset.build_batch_request(),
+        expectation_suite=suite
     )
     
-    # Run checkpoint
+    # Run validation
     logger.info("Running weather fact checkpoint...")
-    result = checkpoint.run()
+    result = validator.validate()
     
     # Check if validation passed
     success = result.success
-    statistics = result.get_statistics() if hasattr(result, 'get_statistics') else {}
+    statistics = result.statistics if hasattr(result, 'statistics') else {}
     
     logger.info(f"Weather checkpoint result: {'PASSED' if success else 'FAILED'}")
     
     return {
-        "checkpoint_name": checkpoint_name,
+        "checkpoint_name": "weather_fact_checkpoint",
         "suite_name": suite_name,
         "success": success,
         "statistics": statistics,
@@ -222,7 +206,7 @@ def run_weather_checkpoint(context: BaseDataContext, batch_query: Optional[str] 
     }
 
 
-def run_wikipedia_checkpoint(context: BaseDataContext, batch_query: Optional[str] = None) -> Dict[str, Any]:
+def run_wikipedia_checkpoint(context, batch_query: Optional[str] = None) -> Dict[str, Any]:
     """
     Run Wikipedia revision fact data quality checkpoint.
     
@@ -247,40 +231,36 @@ def run_wikipedia_checkpoint(context: BaseDataContext, batch_query: Optional[str
             LIMIT 1000
         """
     
-    # Create batch request
-    batch_request = RuntimeBatchRequest(
-        datasource_name="postgres_datasource",
-        data_connector_name="default_runtime_data_connector",
-        data_asset_name="wikipedia_revision",
-        runtime_parameters={"query": batch_query},
-        batch_identifiers={"default_identifier_name": "wikipedia_batch"},
+    # Get datasource
+    datasource = context.get_datasource("postgres_datasource")
+    
+    # Create data asset and batch
+    data_asset = datasource.add_query_asset(
+        name="wikipedia_revision",
+        query=batch_query
     )
     
-    # Create checkpoint
-    checkpoint_name = "wikipedia_revision_checkpoint"
-    checkpoint = SimpleCheckpoint(
-        name=checkpoint_name,
-        data_context=context,
-        validations=[
-            {
-                "batch_request": batch_request,
-                "expectation_suite_name": suite_name,
-            }
-        ],
+    # Get expectation suite
+    suite = context.get_expectation_suite(suite_name)
+    
+    # Create validator
+    validator = context.get_validator(
+        batch_request=data_asset.build_batch_request(),
+        expectation_suite=suite
     )
     
-    # Run checkpoint
+    # Run validation
     logger.info("Running Wikipedia revision checkpoint...")
-    result = checkpoint.run()
+    result = validator.validate()
     
     # Check if validation passed
     success = result.success
-    statistics = result.get_statistics() if hasattr(result, 'get_statistics') else {}
+    statistics = result.statistics if hasattr(result, 'statistics') else {}
     
     logger.info(f"Wikipedia checkpoint result: {'PASSED' if success else 'FAILED'}")
     
     return {
-        "checkpoint_name": checkpoint_name,
+        "checkpoint_name": "wikipedia_revision_checkpoint",
         "suite_name": suite_name,
         "success": success,
         "statistics": statistics,
@@ -288,7 +268,7 @@ def run_wikipedia_checkpoint(context: BaseDataContext, batch_query: Optional[str
     }
 
 
-def initialize_great_expectations() -> BaseDataContext:
+def initialize_great_expectations():
     """
     Initialize Great Expectations and create expectation suites.
     
