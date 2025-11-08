@@ -90,7 +90,9 @@ def get_location_weather(location_id):
                 observed_at,
                 temperature_celsius,
                 humidity_percent,
-                wind_speed_mps
+                wind_speed_mps,
+                precipitation_mm,
+                cloud_cover_percent
             FROM core.weather
             WHERE location_id = %s
             ORDER BY observed_at DESC
@@ -103,7 +105,9 @@ def get_location_weather(location_id):
                 'observed_at': row[0].isoformat() if row[0] else None,
                 'temperature_celsius': float(row[1]) if row[1] else None,
                 'humidity_percent': float(row[2]) if row[2] else None,
-                'wind_speed_mps': float(row[3]) if row[3] else None
+                'wind_speed_mps': float(row[3]) if row[3] else None,
+                'precipitation_mm': float(row[4]) if row[4] else None,
+                'cloud_cover_percent': float(row[5]) if row[5] else None
             })
         
         # Get summary stats

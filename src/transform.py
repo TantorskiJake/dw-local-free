@@ -100,6 +100,8 @@ def transform_weather_to_fact() -> Dict[str, Any]:
             temps = hourly.get("temperature_2m", [])
             humidities = hourly.get("relativehumidity_2m", [])
             wind_speeds_kmh = hourly.get("windspeed_10m", [])
+            precipitations = hourly.get("precipitation", [])
+            cloud_covers = hourly.get("cloudcover", [])
             
             if not times:
                 logger.warning(f"No time data for {location_name}, skipping")
@@ -127,6 +129,8 @@ def transform_weather_to_fact() -> Dict[str, Any]:
                     temp = temps[i] if i < len(temps) and temps[i] is not None else None
                     humidity = humidities[i] if i < len(humidities) and humidities[i] is not None else None
                     wind_kmh = wind_speeds_kmh[i] if i < len(wind_speeds_kmh) and wind_speeds_kmh[i] is not None else None
+                    precipitation = precipitations[i] if i < len(precipitations) and precipitations[i] is not None else None
+                    cloud_cover = cloud_covers[i] if i < len(cloud_covers) and cloud_covers[i] is not None else None
                     
                     # Convert wind speed: km/h to m/s
                     wind_mps = (wind_kmh / 3.6) if wind_kmh is not None else None
@@ -142,13 +146,15 @@ def transform_weather_to_fact() -> Dict[str, Any]:
                     cursor.execute("""
                         INSERT INTO core.weather 
                         (location_id, observed_at, temperature_celsius, humidity_percent, 
-                         wind_speed_mps, raw_ref, created_at)
-                        VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s)
+                         wind_speed_mps, precipitation_mm, cloud_cover_percent, raw_ref, created_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s)
                         ON CONFLICT (location_id, observed_at)
                         DO UPDATE SET
                             temperature_celsius = EXCLUDED.temperature_celsius,
                             humidity_percent = EXCLUDED.humidity_percent,
                             wind_speed_mps = EXCLUDED.wind_speed_mps,
+                            precipitation_mm = EXCLUDED.precipitation_mm,
+                            cloud_cover_percent = EXCLUDED.cloud_cover_percent,
                             raw_ref = EXCLUDED.raw_ref
                     """, (
                         location_id,
@@ -156,6 +162,8 @@ def transform_weather_to_fact() -> Dict[str, Any]:
                         temp,
                         humidity,
                         wind_mps,
+                        precipitation,
+                        cloud_cover,
                         raw_ref,
                         datetime.now(timezone.utc)
                     ))

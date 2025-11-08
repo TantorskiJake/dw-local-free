@@ -137,24 +137,32 @@
         
         .weather-hour {
             background: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 10px;
+            padding: 18px;
+            border-radius: 8px;
+            margin-bottom: 12px;
             display: grid;
-            grid-template-columns: 120px 1fr 1fr 1fr;
-            gap: 15px;
+            grid-template-columns: 100px 120px 1fr;
+            gap: 20px;
             align-items: center;
+            transition: all 0.2s ease;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .weather-hour:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
         }
         
         .weather-hour.today {
-            background: #e7f3ff;
+            background: linear-gradient(135deg, #e7f3ff 0%, #d6e9ff 100%);
             border-left: 4px solid #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
         }
         
         .hour-time {
             font-weight: bold;
             color: #333;
-            font-size: 0.9em;
+            font-size: 0.95em;
         }
         
         .hour-time.today {
@@ -162,22 +170,48 @@
         }
         
         .hour-temp {
-            font-size: 1.3em;
+            font-size: 1.5em;
             font-weight: bold;
             color: #667eea;
         }
         
-        .hour-details {
+        .hour-main-details {
             display: flex;
-            gap: 15px;
-            font-size: 0.9em;
-            color: #666;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .hour-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 12px;
+            font-size: 0.85em;
         }
         
         .hour-detail {
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 6px;
+            padding: 6px 10px;
+            background: white;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+        
+        .hour-detail-icon {
+            font-size: 1.1em;
+        }
+        
+        .hour-detail-label {
+            color: #666;
+            font-size: 0.75em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .hour-detail-value {
+            color: #333;
+            font-weight: 600;
         }
         
         .chart-container {
@@ -289,6 +323,24 @@
         
         body.dark-mode .hour-detail {
             color: #b0b0b0;
+            background: #1a1a2e;
+        }
+        
+        body.dark-mode .hour-detail-label {
+            color: #888;
+        }
+        
+        body.dark-mode .hour-detail-value {
+            color: #e0e0e0;
+        }
+        
+        body.dark-mode .weather-hour {
+            background: #1a1a2e;
+            border-color: #333;
+        }
+        
+        body.dark-mode .weather-hour:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
         
         body.dark-mode .wikipedia-content {
@@ -768,7 +820,9 @@
                         isNow: isNow,
                         temp: obs.temperature_celsius,
                         humidity: obs.humidity_percent,
-                        wind: obs.wind_speed_mps
+                        wind: obs.wind_speed_mps,
+                        precipitation: obs.precipitation_mm,
+                        cloudCover: obs.cloud_cover_percent
                     });
                 });
                 
@@ -797,20 +851,67 @@
                     if (dayKey === todayKey && !hasTodayData && dayData.hours.length === 0) {
                         return; // Skip - we already showed the message above
                     }
-                    html += `<div style="margin-bottom: 20px;">
-                        <h3 style="color: #667eea; margin-bottom: 10px; font-size: 1.1em;">${dayData.dayName}</h3>
-                        ${dayData.hours.map(hour => `
-                            <div class="weather-hour ${hour.isNow || dayData.isToday ? 'today' : ''}">
-                                <div class="hour-time ${hour.isNow || dayData.isToday ? 'today' : ''}">
+                    html += `<div style="margin-bottom: 25px;">
+                        <h3 style="color: #667eea; margin-bottom: 15px; font-size: 1.2em; font-weight: 600;">${dayData.dayName}</h3>
+                        ${dayData.hours.map(hour => {
+                            const isTodayHour = hour.isNow || dayData.isToday;
+                            return `
+                            <div class="weather-hour ${isTodayHour ? 'today' : ''}">
+                                <div class="hour-time ${isTodayHour ? 'today' : ''}">
                                     ${hour.isNow ? '🕐 Now' : hour.time}
                                 </div>
                                 <div class="hour-temp">${formatTemperature(hour.temp)}</div>
-                                <div class="hour-details">
-                                    ${hour.humidity !== null ? `<div class="hour-detail">💧 ${hour.humidity.toFixed(0)}%</div>` : ''}
-                                    ${hour.wind !== null ? `<div class="hour-detail">💨 ${hour.wind.toFixed(1)} m/s</div>` : ''}
+                                <div class="hour-main-details">
+                                    <div class="hour-details">
+                                        ${hour.humidity !== null ? `
+                                            <div class="hour-detail">
+                                                <span class="hour-detail-icon">💧</span>
+                                                <div>
+                                                    <div class="hour-detail-label">Humidity</div>
+                                                    <div class="hour-detail-value">${hour.humidity.toFixed(0)}%</div>
+                                                </div>
+                                            </div>
+                                        ` : ''}
+                                        ${hour.wind !== null ? `
+                                            <div class="hour-detail">
+                                                <span class="hour-detail-icon">💨</span>
+                                                <div>
+                                                    <div class="hour-detail-label">Wind</div>
+                                                    <div class="hour-detail-value">${hour.wind.toFixed(1)} m/s</div>
+                                                </div>
+                                            </div>
+                                        ` : ''}
+                                        ${hour.precipitation !== null && hour.precipitation > 0 ? `
+                                            <div class="hour-detail">
+                                                <span class="hour-detail-icon">🌧️</span>
+                                                <div>
+                                                    <div class="hour-detail-label">Precipitation</div>
+                                                    <div class="hour-detail-value">${hour.precipitation.toFixed(1)} mm</div>
+                                                </div>
+                                            </div>
+                                        ` : hour.precipitation !== null ? `
+                                            <div class="hour-detail" style="opacity: 0.6;">
+                                                <span class="hour-detail-icon">🌧️</span>
+                                                <div>
+                                                    <div class="hour-detail-label">Precipitation</div>
+                                                    <div class="hour-detail-value">0 mm</div>
+                                                </div>
+                                            </div>
+                                        ` : ''}
+                                        ${hour.cloudCover !== null ? `
+                                            <div class="hour-detail">
+                                                <span class="hour-detail-icon">☁️</span>
+                                                <div>
+                                                    <div class="hour-detail-label">Clouds</div>
+                                                    <div class="hour-detail-value">${hour.cloudCover.toFixed(0)}%</div>
+                                                </div>
+                                            </div>
+                                        ` : ''}
+                                    </div>
                                 </div>
                             </div>
-                        `).join('')}
+                        `;
+                        }).join('')}
                     </div>`;
                 });
                 
