@@ -73,6 +73,16 @@ def get_location_weather(location_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         
+        # Check if new columns exist, fallback to old query if not
+        cursor.execute("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_schema = 'core' 
+            AND table_name = 'weather' 
+            AND column_name IN ('precipitation_mm', 'cloud_cover_percent')
+        """)
+        has_new_columns = len(cursor.fetchall()) == 2
+        
         # Get location info
         cursor.execute("""
             SELECT location_name, city, region, country
@@ -85,30 +95,50 @@ def get_location_weather(location_id):
             return jsonify({'error': 'Location not found'}), 404
         
         # Get latest weather observations
-        cursor.execute("""
-            SELECT 
-                observed_at,
-                temperature_celsius,
-                humidity_percent,
-                wind_speed_mps,
-                precipitation_mm,
-                cloud_cover_percent
-            FROM core.weather
-            WHERE location_id = %s
-            ORDER BY observed_at DESC
-            LIMIT 168
-        """, (location_id,))
+        if has_new_columns:
+            cursor.execute("""
+                SELECT 
+                    observed_at,
+                    temperature_celsius,
+                    humidity_percent,
+                    wind_speed_mps,
+                    precipitation_mm,
+                    cloud_cover_percent
+                FROM core.weather
+                WHERE location_id = %s
+                ORDER BY observed_at DESC
+                LIMIT 168
+            """, (location_id,))
+        else:
+            # Fallback for databases without new columns
+            cursor.execute("""
+                SELECT 
+                    observed_at,
+                    temperature_celsius,
+                    humidity_percent,
+                    wind_speed_mps,
+                    NULL as precipitation_mm,
+                    NULL as cloud_cover_percent
+                FROM core.weather
+                WHERE location_id = %s
+                ORDER BY observed_at DESC
+                LIMIT 168
+            """, (location_id,))
         
         observations = []
         for row in cursor.fetchall():
-            observations.append({
-                'observed_at': row[0].isoformat() if row[0] else None,
-                'temperature_celsius': float(row[1]) if row[1] else None,
-                'humidity_percent': float(row[2]) if row[2] else None,
-                'wind_speed_mps': float(row[3]) if row[3] else None,
-                'precipitation_mm': float(row[4]) if row[4] else None,
-                'cloud_cover_percent': float(row[5]) if row[5] else None
-            })
+            try:
+                observations.append({
+                    'observed_at': row[0].isoformat() if row[0] else None,
+                    'temperature_celsius': float(row[1]) if row[1] is not None else None,
+                    'humidity_percent': float(row[2]) if row[2] is not None else None,
+                    'wind_speed_mps': float(row[3]) if row[3] is not None else None,
+                    'precipitation_mm': float(row[4]) if row[4] is not None else None,
+                    'cloud_cover_percent': float(row[5]) if row[5] is not None else None
+                })
+            except (ValueError, TypeError, IndexError) as e:
+                # Skip rows with invalid data
+                continue
         
         # Get summary stats
         cursor.execute("""
@@ -146,7 +176,10 @@ def get_location_weather(location_id):
             }
         })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Weather API error for location {location_id}: {error_details}")  # Log for debugging
+        return jsonify({'error': str(e), 'location_id': location_id}), 500
 
 
 @app.route('/api/wikipedia-pages')
