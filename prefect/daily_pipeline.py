@@ -27,6 +27,17 @@ from src.data_quality import (
     run_weather_checkpoint,
     run_wikipedia_checkpoint
 )
+from src.extract import (
+    fetch_weather_from_api,
+    store_weather_raw,
+    fetch_wikipedia_from_api,
+    store_wikipedia_raw
+)
+from src.transform import (
+    transform_weather_to_fact,
+    transform_wikipedia_to_fact
+)
+from src.seed_loader import ensure_location_dimension
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -44,18 +55,15 @@ logger = logging.getLogger(__name__)
     timeout_seconds=60,
     log_prints=True
 )
-def ensure_location_dimension() -> Dict[str, Any]:
+def ensure_location_dimension_task() -> Dict[str, Any]:
     """
     Ensure location dimension is up to date from seed data.
     Reads from seed_data.yaml and upserts into core.location.
     """
     logger.info("Ensuring location dimension is up to date from seeds")
-    # TODO: Implement seed data loading logic
-    # - Read src/seed_data.yaml
-    # - Upsert locations into core.location
-    # - Return summary of locations processed
-    time.sleep(1)  # Placeholder
-    return {"status": "success", "locations_processed": 2}
+    result = ensure_location_dimension()
+    logger.info(f"Location dimension updated: {result}")
+    return result
 
 
 @task(
@@ -80,17 +88,25 @@ def fetch_raw_weather(location: Dict[str, Any]) -> Dict[str, Any]:
         Dictionary with location info and fetch status
     """
     logger.info(f"Fetching weather data for {location.get('location_name')}")
-    # TODO: Implement Open-Meteo API call
-    # - Calculate time range (last 24 hours + forecast)
-    # - Call Open-Meteo API
-    # - Store full JSON payload in raw.weather_observations
-    # - Return status
-    time.sleep(2)  # Placeholder for API call
-    return {
-        "location_name": location.get("location_name"),
-        "status": "success",
-        "records_inserted": 1
-    }
+    
+    try:
+        # Fetch from API
+        api_data = fetch_weather_from_api(location)
+        
+        # Store in raw table
+        raw_id = store_weather_raw(location, api_data)
+        
+        logger.info(f"Successfully fetched and stored weather for {location.get('location_name')}")
+        
+        return {
+            "location_name": location.get("location_name"),
+            "status": "success",
+            "records_inserted": 1,
+            "raw_id": raw_id
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch weather for {location.get('location_name')}: {e}")
+        raise
 
 
 @task(
@@ -100,27 +116,25 @@ def fetch_raw_weather(location: Dict[str, Any]) -> Dict[str, Any]:
     timeout_seconds=300,
     log_prints=True
 )
-def transform_weather_to_fact(fetch_results: List[Dict[str, Any]]) -> Dict[str, Any]:
+def transform_weather_to_fact_task(fetch_results: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Transform raw weather data into weather fact table.
     
     Args:
-        fetch_results: List of results from fetch_raw_weather tasks
+        fetch_results: List of results from fetch_raw_weather tasks (for dependency tracking)
         
     Returns:
         Dictionary with transform summary
     """
     logger.info("Transforming weather data to fact table")
-    # TODO: Implement weather transform logic
-    # - Read latest raw payload per location
-    # - Explode hourly arrays into rows
-    # - Convert units (km/h to m/s)
-    # - Upsert into core.weather
-    time.sleep(3)  # Placeholder
-    return {
-        "status": "success",
-        "records_processed": sum(r.get("records_inserted", 0) for r in fetch_results)
-    }
+    
+    try:
+        result = transform_weather_to_fact()
+        logger.info(f"Weather transform completed: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"Weather transform failed: {e}")
+        raise
 
 
 @task(
@@ -141,17 +155,25 @@ def fetch_raw_wikipedia_page(page: Dict[str, Any]) -> Dict[str, Any]:
         Dictionary with page info and fetch status
     """
     logger.info(f"Fetching Wikipedia data for {page.get('page_title')}")
-    # TODO: Implement MediaWiki REST API calls
-    # - Call /api/rest_v1/page/summary/{title}
-    # - Call /api/rest_v1/page/html/{title} for content size
-    # - Store in raw.wikipedia_pages
-    # - Return status
-    time.sleep(2)  # Placeholder for API call
-    return {
-        "page_title": page.get("page_title"),
-        "status": "success",
-        "records_inserted": 1
-    }
+    
+    try:
+        # Fetch from API
+        summary_data, content_size = fetch_wikipedia_from_api(page)
+        
+        # Store in raw table
+        raw_id = store_wikipedia_raw(page, summary_data, content_size)
+        
+        logger.info(f"Successfully fetched and stored Wikipedia data for {page.get('page_title')}")
+        
+        return {
+            "page_title": page.get("page_title"),
+            "status": "success",
+            "records_inserted": 1,
+            "raw_id": raw_id
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch Wikipedia data for {page.get('page_title')}: {e}")
+        raise
 
 
 @task(
@@ -161,27 +183,25 @@ def fetch_raw_wikipedia_page(page: Dict[str, Any]) -> Dict[str, Any]:
     timeout_seconds=300,
     log_prints=True
 )
-def upsert_wikipedia_dimension_and_facts(fetch_results: List[Dict[str, Any]]) -> Dict[str, Any]:
+def upsert_wikipedia_dimension_and_facts_task(fetch_results: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Upsert Wikipedia page dimension (type-2 SCD) and insert revision facts.
     
     Args:
-        fetch_results: List of results from fetch_raw_wikipedia_page tasks
+        fetch_results: List of results from fetch_raw_wikipedia_page tasks (for dependency tracking)
         
     Returns:
         Dictionary with upsert summary
     """
     logger.info("Upserting Wikipedia dimension and revision facts")
-    # TODO: Implement Wikipedia transform logic
-    # - Read latest raw payload per page
-    # - Implement type-2 SCD for page dimension
-    # - Insert revision facts
-    time.sleep(3)  # Placeholder
-    return {
-        "status": "success",
-        "pages_processed": len(fetch_results),
-        "revisions_inserted": len(fetch_results)
-    }
+    
+    try:
+        result = transform_wikipedia_to_fact()
+        logger.info(f"Wikipedia transform completed: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"Wikipedia transform failed: {e}")
+        raise
 
 
 @task(
@@ -328,24 +348,32 @@ def daily_pipeline():
         logger.info("Starting daily pipeline")
         
         # Step 1: Ensure location dimension is up to date
-        location_result = ensure_location_dimension()
+        location_result = ensure_location_dimension_task()
         logger.info(f"Location dimension updated: {location_result}")
         
-        # Get list of locations for parallel processing
-        # TODO: Query core.location to get actual locations
-        # Using 10 locations to demonstrate concurrency control
+        # Get list of locations from database
+        import psycopg2
+        database_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/dw")
+        conn = psycopg2.connect(database_url)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT location_name, latitude, longitude 
+            FROM core.location 
+            ORDER BY location_name
+        """)
+        location_rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
         locations = [
-            {"location_name": "Boston", "latitude": 42.3601, "longitude": -71.0589},
-            {"location_name": "St Louis", "latitude": 38.6270, "longitude": -90.1994},
-            {"location_name": "New York", "latitude": 40.7128, "longitude": -74.0060},
-            {"location_name": "Chicago", "latitude": 41.8781, "longitude": -87.6298},
-            {"location_name": "Los Angeles", "latitude": 34.0522, "longitude": -118.2437},
-            {"location_name": "Miami", "latitude": 25.7617, "longitude": -80.1918},
-            {"location_name": "Seattle", "latitude": 47.6062, "longitude": -122.3321},
-            {"location_name": "Denver", "latitude": 39.7392, "longitude": -104.9903},
-            {"location_name": "Phoenix", "latitude": 33.4484, "longitude": -112.0740},
-            {"location_name": "Atlanta", "latitude": 33.7490, "longitude": -84.3880}
+            {
+                "location_name": row[0],
+                "latitude": float(row[1]),
+                "longitude": float(row[2])
+            }
+            for row in location_rows
         ]
+        logger.info(f"Found {len(locations)} locations to process")
         
         # Step 2: Fetch raw weather data for each location in parallel
         # Process 10 locations with concurrency limit of 3 to control API rate
@@ -356,24 +384,37 @@ def daily_pipeline():
         logger.info("Note: Concurrency limit of 3 is enforced via Prefect work queue settings")
         
         # Step 3: Transform weather data to fact table
-        weather_transform_result = transform_weather_to_fact(weather_fetch_results)
+        weather_transform_result = transform_weather_to_fact_task(weather_fetch_results)
         logger.info(f"Weather transform completed: {weather_transform_result}")
         
-        # Get list of Wikipedia pages for parallel processing
-        # TODO: Query core.wikipedia_page to get actual pages
+        # Get list of Wikipedia pages from database
+        conn = psycopg2.connect(database_url)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT page_title, page_language 
+            FROM core.wikipedia_page 
+            WHERE is_current = true
+            ORDER BY page_title
+        """)
+        page_rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
         wikipedia_pages = [
-            {"page_title": "Boston", "page_language": "en"},
-            {"page_title": "St. Louis", "page_language": "en"},
-            {"page_title": "New England", "page_language": "en"},
-            {"page_title": "Cardinals", "page_language": "en"}
+            {
+                "page_title": row[0],
+                "page_language": row[1]
+            }
+            for row in page_rows
         ]
+        logger.info(f"Found {len(wikipedia_pages)} Wikipedia pages to process")
         
         # Step 4: Fetch raw Wikipedia pages in parallel
         wikipedia_fetch_results = fetch_raw_wikipedia_page.map(wikipedia_pages)
         logger.info(f"Wikipedia fetch completed for {len(wikipedia_pages)} pages")
         
         # Step 5: Upsert Wikipedia dimension and insert revision facts
-        wikipedia_transform_result = upsert_wikipedia_dimension_and_facts(wikipedia_fetch_results)
+        wikipedia_transform_result = upsert_wikipedia_dimension_and_facts_task(wikipedia_fetch_results)
         logger.info(f"Wikipedia transform completed: {wikipedia_transform_result}")
         
         # Step 6: Run data quality checkpoints (after transforms, before mart refresh)
