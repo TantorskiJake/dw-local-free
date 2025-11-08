@@ -102,16 +102,10 @@
         }
         
         .content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
+            display: flex;
+            flex-direction: column;
             gap: 30px;
             margin-bottom: 30px;
-        }
-        
-        @media (max-width: 968px) {
-            .content {
-                grid-template-columns: 1fr;
-            }
         }
         
         .card {
@@ -119,6 +113,14 @@
             padding: 30px;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .weather-card {
+            width: 100%;
+        }
+        
+        .wikipedia-card {
+            width: 100%;
         }
         
         .card h2 {
@@ -281,12 +283,41 @@
             color: #667eea;
         }
         
+        body.dark-mode .hour-temp {
+            color: #667eea;
+        }
+        
+        body.dark-mode .hour-detail {
+            color: #b0b0b0;
+        }
+        
         body.dark-mode .wikipedia-content {
             color: #e0e0e0;
         }
         
         body.dark-mode .wikipedia-content h3 {
-            color: #667eea;
+            color: #e0e0e0;
+        }
+        
+        body.dark-mode .wikipedia-content p {
+            color: #d0d0d0;
+        }
+        
+        body.dark-mode .wikipedia-description {
+            color: #a0c4ff !important;
+        }
+        
+        body.dark-mode .wikipedia-link {
+            background: #667eea;
+            color: white;
+        }
+        
+        body.dark-mode .wikipedia-link:hover {
+            background: #5568d3;
+        }
+        
+        body.dark-mode .wikipedia-divider {
+            border-top-color: #444 !important;
         }
         
         body.dark-mode .status.success {
@@ -380,14 +411,14 @@
         </header>
         
         <div class="content" id="content" style="display: none;">
-            <div class="card">
+            <div class="card weather-card">
                 <h2>🌤️ Hourly Weather Forecast</h2>
                 <div id="weatherContent">
                     <div class="loading">Loading weather data...</div>
                 </div>
             </div>
             
-            <div class="card">
+            <div class="card wikipedia-card">
                 <h2>📚 Wikipedia Article</h2>
                 <div id="wikipediaContent">
                     <div class="loading">Loading Wikipedia article...</div>
@@ -430,6 +461,18 @@
                 document.getElementById('darkModeToggle').textContent = '🌙 Dark';
             }
             localStorage.setItem('darkMode', darkMode);
+            
+            // Reload content if it's already displayed to update colors
+            const cityInput = document.getElementById('cityInput');
+            if (cityInput && cityInput.value.trim()) {
+                // Reload Wikipedia content
+                loadWikipedia(cityInput.value.trim());
+                
+                // Reload weather chart if location ID is available
+                if (cityInput.dataset.lastLocationId) {
+                    loadWeather(parseInt(cityInput.dataset.lastLocationId));
+                }
+            }
         }
         
         // Temperature unit toggle
@@ -540,7 +583,7 @@
                 await loadWeather(data.location.id);
                 await loadWikipedia(data.location.name);
                 
-                contentEl.style.display = 'grid';
+                contentEl.style.display = 'flex';
                 emptyStateEl.style.display = 'none';
                 
             } catch (error) {
@@ -802,6 +845,12 @@
                     const humidities = chartData.map(obs => obs.humidity_percent);
                     const tempUnit = useFahrenheit ? '°F' : '°C';
                     
+                    // Dark mode colors
+                    const isDarkMode = document.body.classList.contains('dark-mode');
+                    const textColor = isDarkMode ? '#e0e0e0' : '#666';
+                    const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+                    const tickColor = isDarkMode ? '#b0b0b0' : '#666';
+                    
                     weatherChart = new Chart(ctx, {
                         type: 'line',
                         data: {
@@ -834,29 +883,51 @@
                                 legend: {
                                     display: true,
                                     position: 'top',
+                                    labels: {
+                                        color: textColor
+                                    }
                                 }
                             },
                             scales: {
+                                x: {
+                                    ticks: {
+                                        color: tickColor
+                                    },
+                                    grid: {
+                                        color: gridColor
+                                    }
+                                },
                                 y: {
                                     type: 'linear',
                                     display: true,
                                     position: 'left',
+                                    ticks: {
+                                        color: tickColor
+                                    },
+                                    grid: {
+                                        color: gridColor
+                                    },
                                     title: {
                                         display: true,
-                                        text: `Temperature (${tempUnit})`
+                                        text: `Temperature (${tempUnit})`,
+                                        color: textColor
                                     }
                                 },
                                 y1: {
                                     type: 'linear',
                                     display: true,
                                     position: 'right',
-                                    title: {
-                                        display: true,
-                                        text: 'Humidity (%)'
+                                    ticks: {
+                                        color: tickColor
                                     },
                                     grid: {
                                         drawOnChartArea: false,
                                     },
+                                    title: {
+                                        display: true,
+                                        text: 'Humidity (%)',
+                                        color: textColor
+                                    }
                                 }
                             }
                         }
@@ -934,12 +1005,53 @@
                 
                 const summary = details.summary;
                 
+                // Format the extract with better paragraph breaks
+                const extract = summary.extract || 'No content available';
+                // Split by double newlines first (paragraph breaks), then by single newlines
+                const paragraphs = extract.split(/\n\n+/).filter(p => p.trim().length > 0);
+                
+                // Use the title from summary, or fall back to cityName, but don't duplicate
+                const displayTitle = summary.title || cityName;
+                
+                // Check if dark mode is active
+                const isDarkMode = document.body.classList.contains('dark-mode');
+                const titleColor = isDarkMode ? '#e0e0e0' : '#333';
+                const textColor = isDarkMode ? '#d0d0d0' : '#444';
+                const descriptionColor = isDarkMode ? '#a0c4ff' : '#667eea';
+                const borderColor = isDarkMode ? '#444' : '#eee';
+                const shadowColor = isDarkMode ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.1)';
+                
                 wikipediaContentEl.innerHTML = `
-                    <div class="wikipedia-content">
-                        <h3>${summary.title || cityName}</h3>
-                        ${summary.description ? `<p style="font-style: italic; color: #666; margin-bottom: 15px;">${summary.description}</p>` : ''}
-                        <p>${summary.extract || 'No content available'}</p>
-                        ${summary.url ? `<p><a href="${summary.url}" target="_blank">Read full article on Wikipedia →</a></p>` : ''}
+                    <div class="wikipedia-content" style="line-height: 1.8; font-size: 1.05em;">
+                        <div style="display: flex; gap: 30px; margin-bottom: 30px; align-items: flex-start;">
+                            ${summary.thumbnail ? `
+                                <img src="${summary.thumbnail}" alt="${displayTitle}" 
+                                     style="max-width: 300px; width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px ${shadowColor}; flex-shrink: 0; object-fit: cover;">
+                            ` : ''}
+                            <div style="flex: 1;">
+                                <h3 style="font-size: 2.2em; margin-bottom: 15px; color: ${titleColor}; font-weight: 700;">${displayTitle}</h3>
+                                ${summary.description ? `<p class="wikipedia-description" style="font-style: italic; color: ${descriptionColor}; font-size: 1.3em; margin-bottom: 25px; font-weight: 500; line-height: 1.4;">${summary.description}</p>` : ''}
+                            </div>
+                        </div>
+                        <div style="margin-top: 25px;">
+                            ${paragraphs.map(para => {
+                                // Further split long paragraphs by single newlines for better readability
+                                const sentences = para.split('\n').filter(s => s.trim().length > 0);
+                                return sentences.map(sentence => 
+                                    `<p style="margin-bottom: 18px; color: ${textColor}; text-align: justify;">${sentence.trim()}</p>`
+                                ).join('');
+                            }).join('')}
+                        </div>
+                        ${summary.url ? `
+                            <div class="wikipedia-divider" style="margin-top: 35px; padding-top: 25px; border-top: 2px solid ${borderColor};">
+                                <a href="${summary.url}" target="_blank" class="wikipedia-link"
+                                   style="display: inline-block; padding: 14px 28px; background: #667eea; color: white; 
+                                          text-decoration: none; border-radius: 6px; font-weight: bold; 
+                                          transition: background 0.3s; font-size: 1.05em;">
+                                    Read full article on Wikipedia →
+                                </a>
+                            </div>
+                        ` : ''}
                     </div>
                 `;
                 

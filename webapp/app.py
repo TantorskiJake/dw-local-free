@@ -206,12 +206,16 @@ def get_wikipedia_page_details(page_id):
             return jsonify({'error': 'Page not found'}), 404
         
         # Get summary from raw table - try exact match first, then case-insensitive
+        # Extract thumbnail source if it's an object, otherwise use the string value
         cursor.execute("""
             SELECT 
                 payload->>'title' as title,
                 payload->>'extract' as extract,
                 payload->'content_urls'->'desktop'->>'page' as url,
-                payload->>'thumbnail' as thumbnail,
+                COALESCE(
+                    payload->'thumbnail'->>'source',
+                    payload->>'thumbnail'
+                ) as thumbnail,
                 payload->>'description' as description,
                 ingested_at
             FROM raw.wikipedia_pages
