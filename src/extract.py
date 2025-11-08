@@ -6,7 +6,7 @@ import requests
 import psycopg2
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
 import logging
 
@@ -28,7 +28,7 @@ def fetch_weather_from_api(location: Dict[str, Any]) -> Dict[str, Any]:
         Dictionary with API response data
     """
     # Calculate time range: last 24 hours + next 7 days forecast
-    end_date = datetime.utcnow()
+    end_date = datetime.now(timezone.utc)
     start_date = end_date - timedelta(days=1)
     
     params = {
@@ -71,7 +71,7 @@ def store_weather_raw(location: Dict[str, Any], api_data: Dict[str, Any]) -> int
         location["latitude"],
         location["longitude"],
         json.dumps(api_data),
-        datetime.utcnow(),
+        datetime.now(timezone.utc),
         "open-meteo"
     ))
     
@@ -146,9 +146,9 @@ def store_wikipedia_raw(page: Dict[str, Any], summary_data: Dict[str, Any], cont
         try:
             revision_ts = datetime.fromisoformat(revision_timestamp.replace("Z", "+00:00"))
         except:
-            revision_ts = datetime.utcnow()
+            revision_ts = datetime.now(timezone.utc)
     else:
-        revision_ts = datetime.utcnow()
+        revision_ts = datetime.now(timezone.utc)
     
     cursor.execute("""
         INSERT INTO raw.wikipedia_pages 
@@ -165,7 +165,7 @@ def store_wikipedia_raw(page: Dict[str, Any], summary_data: Dict[str, Any], cont
         content_size,
         page.get("page_language", "en"),
         json.dumps(summary_data),
-        datetime.utcnow(),
+        datetime.now(timezone.utc),
         "mediawiki-rest-api"
     ))
     

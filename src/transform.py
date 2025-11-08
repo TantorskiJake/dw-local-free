@@ -5,7 +5,7 @@ Transform functions for converting raw data to core fact tables.
 import psycopg2
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any
 import logging
 
@@ -119,7 +119,7 @@ def transform_weather_to_fact() -> Dict[str, Any]:
                         humidity,
                         wind_mps,
                         raw_ref,
-                        datetime.utcnow()
+                        datetime.now(timezone.utc)
                     ))
                     
                     rows_inserted += 1
@@ -210,9 +210,9 @@ def transform_wikipedia_to_fact() -> Dict[str, Any]:
                         timestamp_str = timestamp_str.replace("Z", "+00:00")
                     revision_ts = datetime.fromisoformat(timestamp_str)
                 except:
-                    revision_ts = datetime.utcnow()
+                    revision_ts = datetime.now(timezone.utc)
             else:
-                revision_ts = datetime.utcnow()
+                revision_ts = datetime.now(timezone.utc)
             
             # Check if page exists in dimension
             cursor.execute("""
@@ -235,7 +235,7 @@ def transform_wikipedia_to_fact() -> Dict[str, Any]:
                         UPDATE core.wikipedia_page
                         SET valid_to = %s, is_current = false
                         WHERE page_id = %s
-                    """, (datetime.utcnow(), existing_page_id))
+                    """, (datetime.now(timezone.utc), existing_page_id))
                     
                     # Insert new current row
                     cursor.execute("""
@@ -249,7 +249,7 @@ def transform_wikipedia_to_fact() -> Dict[str, Any]:
                         current_title,
                         namespace_id,
                         page_language,
-                        datetime.utcnow(),
+                        datetime.now(timezone.utc),
                         None,
                         True
                     ))
@@ -271,7 +271,7 @@ def transform_wikipedia_to_fact() -> Dict[str, Any]:
                     current_title,
                     namespace_id,
                     page_language,
-                    datetime.utcnow(),
+                    datetime.now(timezone.utc),
                     None,
                     True
                 ))
@@ -295,7 +295,7 @@ def transform_wikipedia_to_fact() -> Dict[str, Any]:
                 current_revision_id,
                 revision_ts,
                 revision_size_bytes or 0,
-                datetime.utcnow(),
+                datetime.now(timezone.utc),
                 raw_ref
             ))
             
