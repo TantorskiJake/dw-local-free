@@ -1,0 +1,35 @@
+# Seed Data for Data Warehouse
+# This file contains reference data that will be loaded into the warehouse
+
+locations:
+  - name: Boston
+    latitude: 42.3601
+    longitude: -71.0589
+    country: US
+    region: Massachusetts
+    city: Boston
+
+  - name: St Louis
+    latitude: 38.6270
+    longitude: -90.1994
+    country: US
+    region: Missouri
+    city: St. Louis
+
+wikipedia_pages:
+  - title: Boston
+    language: en
+    namespace: 0
+
+  - title: St. Louis
+    language: en
+    namespace: 0
+
+  - title: New England
+    language: en
+    namespace: 0
+
+  - title: Cardinals
+    language: en
+    namespace: 0
+
