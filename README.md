@@ -11,11 +11,12 @@ This project provides a local, free data warehouse solution using modern data en
 
 ## Project Structure
 
-- `src/` - Source code, SQL scripts, and data quality checks
+- `src/` - Source code, SQL scripts, data quality checks, and CLI tool
 - `prefect/` - Prefect workflows and orchestration
-- `docs/` - Documentation
+- `docs/` - Documentation and architecture diagrams
 - `tests/` - Test files
-- `dbt_project/` - DBT transformation models (optional)
+- `dbt_project/` - dbt Core models for documentation and lineage
+- `scripts/` - Convenience scripts
 
 ## Quick Start
 
@@ -46,6 +47,39 @@ prefect server start
 ```
 
 Prefect UI will be available at http://127.0.0.1:4200
+
+### 4. View Architecture Documentation
+
+Open `docs/architecture.html` in your browser for a visual overview of the system architecture.
+
+### 5. Use CLI Tool (Optional)
+
+```bash
+# Add a new location
+python src/cli.py add-location \
+    --name "San Francisco" \
+    --lat 37.7749 \
+    --lon -122.4194 \
+    --city "San Francisco" \
+    --region "California" \
+    --run
+
+# Add a new Wikipedia page
+python src/cli.py add-page --title "San Francisco" --run
+
+# See all commands
+python src/cli.py --help
+```
+
+### 6. Generate dbt Documentation (Optional)
+
+```bash
+cd dbt_project
+dbt docs generate
+dbt docs serve
+```
+
+dbt docs will be available at http://localhost:8080 with lineage graphs and model documentation.
 
 ---
 

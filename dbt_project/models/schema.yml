@@ -1,0 +1,75 @@
+version: 2
+
+models:
+  - name: weather
+    description: "Weather fact table with hourly observations"
+    columns:
+      - name: location_id
+        description: "Foreign key to location dimension"
+      - name: observed_at
+        description: "Timestamp of weather observation"
+      - name: temperature_celsius
+        description: "Temperature in Celsius"
+      - name: humidity_percent
+        description: "Relative humidity percentage"
+      - name: wind_speed_mps
+        description: "Wind speed in meters per second"
+
+  - name: location
+    description: "Location dimension table"
+    columns:
+      - name: location_id
+        description: "Primary key"
+      - name: location_name
+        description: "Name of the location"
+      - name: latitude
+        description: "Latitude coordinate"
+      - name: longitude
+        description: "Longitude coordinate"
+
+  - name: revision
+    description: "Wikipedia revision fact table"
+    columns:
+      - name: page_id
+        description: "Foreign key to wikipedia_page dimension"
+      - name: revision_id
+        description: "Wikipedia revision ID"
+      - name: content_len
+        description: "Size of page content in bytes"
+
+  - name: wikipedia_page
+    description: "Wikipedia page dimension table (type-2 SCD)"
+    columns:
+      - name: page_id
+        description: "Primary key"
+      - name: wikipedia_page_id
+        description: "Wikipedia page ID"
+      - name: page_title
+        description: "Page title"
+      - name: is_current
+        description: "True if this is the current version"
+
+  - name: daily_weather_aggregates
+    description: "Daily weather aggregates by location"
+    columns:
+      - name: location_name
+        description: "Name of the location"
+      - name: observation_date
+        description: "Date of observations"
+      - name: observation_count
+        description: "Number of hourly observations"
+      - name: avg_temperature_celsius
+        description: "Average temperature for the day"
+
+  - name: daily_wikipedia_page_stats
+    description: "Daily Wikipedia page statistics"
+    columns:
+      - name: page_title
+        description: "Wikipedia page title"
+      - name: revision_date
+        description: "Date of revisions"
+      - name: revision_count
+        description: "Number of revisions"
+      - name: total_bytes_changed
+        description: "Total bytes changed across revisions"
+

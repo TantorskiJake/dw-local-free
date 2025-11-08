@@ -1,0 +1,13 @@
+dw_local_free:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: localhost
+      user: postgres
+      password: postgres
+      port: 5432
+      dbname: dw
+      schema: mart
+      threads: 4
+

@@ -1,0 +1,5 @@
+#!/bin/bash
+# Convenience wrapper for data warehouse CLI
+
+python3 "$(dirname "$0")/../src/cli.py" "$@"
+

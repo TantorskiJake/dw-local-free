@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Warehouse Architecture - Local Free</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            margin-bottom: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .section {
+            background: white;
+            padding: 30px;
+            margin-bottom: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        h3 {
+            color: #764ba2;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .diagram {
+            background: #f9f9f9;
+            padding: 30px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 2px dashed #ddd;
+        }
+        
+        .layer {
+            margin: 20px 0;
+            padding: 20px;
+            border-left: 4px solid #667eea;
+            background: #f0f0f0;
+        }
+        
+        .layer h4 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .flow-box {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 5px;
+            background: #667eea;
+            color: white;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        
+        .arrow {
+            text-align: center;
+            font-size: 2em;
+            color: #667eea;
+            margin: 10px 0;
+        }
+        
+        .tech-stack {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .tech-item {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            border: 2px solid #ddd;
+        }
+        
+        .tech-item strong {
+            color: #667eea;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+        
+        li:before {
+            content: "▸";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+        }
+        
+        .links {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        
+        .link-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+        
+        .link-button:hover {
+            background: #764ba2;
+        }
+        
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .highlight {
+            background: #fff3cd;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Data Warehouse Architecture</h1>
+            <p class="subtitle">Local Free - Modern Data Engineering Stack</p>
+        </header>
+
+        <div class="section">
+            <h2>Overview</h2>
+            <p>
+                This data warehouse demonstrates a complete <span class="highlight">ELT (Extract, Load, Transform)</span> pipeline
+                using free, open-source tools. Data flows from external APIs through raw storage, dimensional modeling,
+                and materialized views for analytics.
+            </p>
+        </div>
+
+        <div class="section">
+            <h2>Architecture Diagram</h2>
+            <div class="diagram">
+                <div class="layer">
+                    <h4>📥 External Data Sources</h4>
+                    <div class="flow-box">Open-Meteo API</div>
+                    <div class="flow-box">Wikipedia REST API</div>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="layer">
+                    <h4>🔄 Orchestration Layer</h4>
+                    <div class="flow-box">Prefect Flows</div>
+                    <p style="margin-top: 10px;">
+                        <strong>Schedules:</strong> Weather (hourly), Wikipedia (twice daily)<br>
+                        <strong>Features:</strong> Retries, concurrency control, data quality checkpoints
+                    </p>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="layer">
+                    <h4>📦 Raw Layer (Schema: raw)</h4>
+                    <ul>
+                        <li><code>weather_observations</code> - Full JSON payloads from Open-Meteo</li>
+                        <li><code>wikipedia_pages</code> - Full JSON payloads from MediaWiki API</li>
+                    </ul>
+                    <p style="margin-top: 10px;"><strong>Purpose:</strong> Append-only storage of raw API responses for audit and reprocessing</p>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="layer">
+                    <h4>✨ Transform Layer</h4>
+                    <ul>
+                        <li>Explode hourly arrays into fact rows</li>
+                        <li>Unit conversions (km/h → m/s)</li>
+                        <li>Type-2 SCD for Wikipedia pages</li>
+                        <li>Upsert logic (idempotent)</li>
+                    </ul>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="layer">
+                    <h4>✅ Data Quality Layer</h4>
+                    <div class="flow-box">Great Expectations</div>
+                    <ul>
+                        <li>Uniqueness checks</li>
+                        <li>Range validations</li>
+                        <li>Referential integrity</li>
+                    </ul>
+                    <p style="margin-top: 10px;"><strong>Behavior:</strong> Flow fails if checkpoints fail (fail-fast)</p>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="layer">
+                    <h4>📊 Core Layer (Schema: core)</h4>
+                    <p><strong>Dimensions:</strong></p>
+                    <ul>
+                        <li><code>location</code> - Geographic locations</li>
+                        <li><code>wikipedia_page</code> - Pages (type-2 SCD)</li>
+                    </ul>
+                    <p style="margin-top: 10px;"><strong>Facts:</strong></p>
+                    <ul>
+                        <li><code>weather</code> - Hourly observations (partitioned by month)</li>
+                        <li><code>revision</code> - Wikipedia page revisions</li>
+                    </ul>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="layer">
+                    <h4>📈 Mart Layer (Schema: mart)</h4>
+                    <ul>
+                        <li><code>daily_weather_aggregates</code> - Daily stats by location</li>
+                        <li><code>daily_wikipedia_page_stats</code> - Daily stats by page</li>
+                    </ul>
+                    <p style="margin-top: 10px;">
+                        <strong>Materialized Views:</strong> Refreshed concurrently (non-blocking reads)
+                    </p>
+                </div>
+                
+                <div class="arrow">↓</div>
+                
+                <div class="layer">
+                    <h4>🔍 Analytics & Documentation</h4>
+                    <div class="flow-box">Adminer</div>
+                    <div class="flow-box">dbt Docs</div>
+                    <div class="flow-box">Prefect UI</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Technology Stack</h2>
+            <div class="tech-stack">
+                <div class="tech-item">
+                    <strong>PostgreSQL 15</strong>
+                    <div>Database Engine</div>
+                </div>
+                <div class="tech-item">
+                    <strong>Prefect 2.x</strong>
+                    <div>Orchestration</div>
+                </div>
+                <div class="tech-item">
+                    <strong>Great Expectations</strong>
+                    <div>Data Quality</div>
+                </div>
+                <div class="tech-item">
+                    <strong>dbt Core</strong>
+                    <div>Transformations</div>
+                </div>
+                <div class="tech-item">
+                    <strong>Docker Compose</strong>
+                    <div>Containerization</div>
+                </div>
+                <div class="tech-item">
+                    <strong>Adminer</strong>
+                    <div>Database UI</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Key Design Decisions</h2>
+            
+            <h3>1. Partitioning Strategy</h3>
+            <p>
+                Weather fact table is <span class="highlight">partitioned by month</span> on <code>observed_at</code>.
+                This keeps index sizes small and enables efficient time-based queries through partition pruning.
+            </p>
+            
+            <h3>2. Idempotent Operations</h3>
+            <p>
+                All transforms use <span class="highlight">upsert logic</span> with unique constraints.
+                This allows safe reruns without data duplication and handles partial failures gracefully.
+            </p>
+            
+            <h3>3. Append-Only Raw Layer</h3>
+            <p>
+                Raw tables store <span class="highlight">full JSON payloads</span> and never update or delete.
+                This provides complete audit trail and enables reprocessing with different logic.
+            </p>
+            
+            <h3>4. Type-2 Slowly Changing Dimensions</h3>
+            <p>
+                Wikipedia page dimension uses <span class="highlight">type-2 SCD</span> to track title changes over time.
+                Current version marked with <code>is_current = true</code> and <code>valid_to = NULL</code>.
+            </p>
+            
+            <h3>5. Concurrent Materialized Views</h3>
+            <p>
+                Mart views refresh using <code>REFRESH MATERIALIZED VIEW CONCURRENTLY</code>.
+                This allows <span class="highlight">non-blocking reads</span> during refresh operations.
+            </p>
+            
+            <h3>6. Fail-Fast Data Quality</h3>
+            <p>
+                Data quality checkpoints run <span class="highlight">after transforms, before mart refresh</span>.
+                If checkpoints fail, flow stops and marts are not refreshed, preventing bad data from reaching analytics.
+            </p>
+        </div>
+
+        <div class="section">
+            <h2>Data Flow</h2>
+            <div class="code-block">
+1. Extract: Fetch data from APIs (Open-Meteo, Wikipedia)
+   ↓
+2. Load: Store full JSON payloads in raw tables
+   ↓
+3. Transform: Parse JSON, explode arrays, convert units
+   ↓
+4. Quality: Run Great Expectations checkpoints
+   ↓
+5. Core: Upsert into fact and dimension tables
+   ↓
+6. Mart: Refresh materialized views (concurrent)
+   ↓
+7. Analytics: Query mart layer for reporting
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Performance Optimizations</h2>
+            <ul>
+                <li><strong>Monthly Partitioning:</strong> Keeps indexes small, enables partition pruning</li>
+                <li><strong>Local Indexes:</strong> Index on (location_id, observed_at) per partition</li>
+                <li><strong>Concurrency Control:</strong> Max 3 concurrent API calls to respect rate limits</li>
+                <li><strong>Concurrent Refresh:</strong> Materialized views refresh without blocking reads</li>
+                <li><strong>Future Scaling:</strong> Citus sharding by location_id when needed (local, no cloud cost)</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Documentation & Resources</h2>
+            <div class="links">
+                <a href="runbook.md" class="link-button">📖 Operations Runbook</a>
+                <a href="performance.md" class="link-button">⚡ Performance Guide</a>
+                <a href="data_contracts.md" class="link-button">📋 Data Contracts</a>
+                <a href="core_transforms_plan.md" class="link-button">🔄 Transform Plan</a>
+                <a href="extract_tasks_plan.md" class="link-button">📥 Extract Plan</a>
+                <a href="data_quality.md" class="link-button">✅ Data Quality</a>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Quick Start</h2>
+            <div class="code-block">
+# Start services
+docker-compose up -d
+
+# Initialize database
+docker-compose exec -T postgres psql -U postgres -d dw < src/init_warehouse.sql
+
+# Run pipeline
+prefect deployment run daily_pipeline/weather-schedule
+
+# View dbt docs
+cd dbt_project && dbt docs serve
+            </div>
+        </div>
+
+        <footer style="text-align: center; padding: 40px 20px; color: #666;">
+            <p>Data Warehouse Local Free - Built with open-source tools</p>
+            <p style="margin-top: 10px; font-size: 0.9em;">
+                <a href="../README.md" style="color: #667eea;">Back to README</a>
+            </p>
+        </footer>
+    </div>
+</body>
+</html>
+
