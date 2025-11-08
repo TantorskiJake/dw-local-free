@@ -38,25 +38,93 @@ The main daily ETL pipeline that orchestrates all data warehouse tasks.
 - Conservative timeouts for all tasks
 - Tagged with `env=local` for environment tracking
 
+## Deployments and Schedules
+
+Two deployments are configured for the `daily_pipeline` flow:
+
+### Weather Schedule
+- **Name**: `weather-schedule`
+- **Schedule**: Hourly at :30 past each hour (UTC)
+- **Cron**: `30 * * * *`
+- **Frequency**: Every hour
+- **Tags**: `schedule=weather`, `frequency=hourly`
+
+### Wikipedia Schedule
+- **Name**: `wikipedia-schedule`
+- **Schedule**: Twice daily at 01:00 and 13:00 UTC
+- **Cron**: `0 1,13 * * *`
+- **Frequency**: Twice per day
+- **Tags**: `schedule=wikipedia`, `frequency=twice-daily`
+
+Both deployments support:
+- ✅ Scheduled runs (automatic based on cron)
+- ✅ Manual "run now" via Prefect UI or CLI
+
 ## Running the Flow
 
-### Option 1: Python script
+### Create Deployments
+
+**Option 1: Using the deployment script**
+```bash
+python prefect/create_deployments.py
+```
+
+**Option 2: Using Prefect CLI**
+```bash
+# Create weather deployment
+prefect deployment build prefect/daily_pipeline.py:daily_pipeline \
+    -n weather-schedule \
+    --schedule "30 * * * *" \
+    --timezone UTC \
+    --tag schedule=weather
+
+# Create Wikipedia deployment
+prefect deployment build prefect/daily_pipeline.py:daily_pipeline \
+    -n wikipedia-schedule \
+    --schedule "0 1,13 * * *" \
+    --timezone UTC \
+    --tag schedule=wikipedia
+
+# Apply deployments
+prefect deployment apply daily_pipeline-deployment.yaml
+```
+
+### Serve Deployments (Enable Scheduled Runs)
+
+To enable scheduled runs and manual execution:
+
+```bash
+python prefect/serve_deployments.py
+```
+
+Or using Prefect serve:
+```bash
+prefect serve prefect/serve_deployments.py
+```
+
+### Manual "Run Now"
+
+**Via Prefect CLI:**
+```bash
+# Run weather schedule manually
+prefect deployment run daily_pipeline/weather-schedule
+
+# Run Wikipedia schedule manually
+prefect deployment run daily_pipeline/wikipedia-schedule
+```
+
+**Via Prefect UI:**
+1. Start Prefect server: `prefect server start`
+2. Open http://127.0.0.1:4200
+3. Navigate to Deployments
+4. Click on a deployment and select "Run"
+
+### Direct Flow Execution (No Schedule)
+
+For testing without deployments:
 ```bash
 python -m prefect.daily_pipeline
 ```
-
-### Option 2: Prefect CLI
-```bash
-prefect deployment build prefect/daily_pipeline.py:daily_pipeline -n daily-pipeline-local
-prefect deployment apply daily_pipeline-deployment.yaml
-prefect deployment run daily_pipeline/daily-pipeline-local
-```
-
-### Option 3: Prefect UI
-1. Start Prefect server: `prefect server start`
-2. Open http://127.0.0.1:4200
-3. Navigate to Flows
-4. Run `daily_pipeline` flow
 
 ## Task Configuration
 
