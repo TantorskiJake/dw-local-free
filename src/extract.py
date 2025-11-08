@@ -100,7 +100,12 @@ def fetch_wikipedia_from_api(page: Dict[str, Any]) -> tuple:
     summary_url = f"{WIKIPEDIA_BASE_URL}/page/summary/{title}"
     logger.info(f"Fetching Wikipedia summary for {title}")
     
-    summary_response = requests.get(summary_url, timeout=30)
+    # Add User-Agent header to avoid 403 errors
+    headers = {
+        'User-Agent': 'DataWarehouseETL/1.0 (https://github.com/your-repo; your-email@example.com)'
+    }
+    
+    summary_response = requests.get(summary_url, headers=headers, timeout=30)
     summary_response.raise_for_status()
     summary_data = summary_response.json()
     
@@ -108,7 +113,7 @@ def fetch_wikipedia_from_api(page: Dict[str, Any]) -> tuple:
     html_url = f"{WIKIPEDIA_BASE_URL}/page/html/{title}"
     logger.info(f"Fetching Wikipedia HTML for {title}")
     
-    html_response = requests.get(html_url, timeout=30)
+    html_response = requests.get(html_url, headers=headers, timeout=30)
     html_response.raise_for_status()
     content_size_bytes = len(html_response.content)
     

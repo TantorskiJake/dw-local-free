@@ -126,6 +126,7 @@ def transform_weather_to_fact() -> Dict[str, Any]:
                     
                 except Exception as e:
                     logger.warning(f"Error processing row {i} for {location_name}: {e}")
+                    # Skip this row and continue with next
                     continue
             
             conn.commit()
@@ -135,7 +136,14 @@ def transform_weather_to_fact() -> Dict[str, Any]:
             
         except Exception as e:
             logger.error(f"Error processing {location_name}: {e}")
-            conn.rollback()
+            try:
+                conn.rollback()
+            except:
+                pass
+            # Create new connection for next location
+            conn.close()
+            conn = psycopg2.connect(DATABASE_URL)
+            cursor = conn.cursor()
             continue
     
     cursor.close()
